@@ -37,13 +37,15 @@ namespace Tests
         {
             JobId jid = sc.SubmitXml(@"C:\tmp\ProActiveWorkflowsScheduling-windows-x64-6.0.1\samples\workflows\01_simple_task.xml");
             
-            //Console.WriteLine("---> jobid.id = " + jid.Id);
+            Console.WriteLine("---> jobid.id = " + jid.Id);
             //Console.WriteLine("---> jobid.ReadableName = " + jid.ReadableName);
 
             Assert.AreNotEqual<long>(0, jid.Id);
             Assert.AreEqual<string>("01_simple_task", jid.ReadableName);
 
-            sc.GetJobState(jid);
+            Console.WriteLine("---> asking job state ...");
+            JobState jobState = sc.GetJobState(jid);
+            Console.WriteLine("---> GOT: " + jobState);
 
             System.Threading.Thread.Sleep(5000);
 
