@@ -7,21 +7,38 @@ namespace Tests
     [TestClass]
     public class RestClientTests
     {
-        public static readonly string REST_SERVER_URL = "http://localhost:8080/rest";        
+        public static readonly string LOCAL_REST_SERVER_URL = "http://localhost:8080/restt";
+
+        public static readonly string TRY_REST_SERVER_URL = "https://try.activeeon.com/rest";
 
         public static SchedulerClient sc;
 
         [ClassInitialize]
         public static void BeforeAll(TestContext ctx)
         {
-            Console.WriteLine("----------------CONNECTING TO THE SCHEDULER---------------");
-            sc = SchedulerClient.connect(REST_SERVER_URL, "admin", "admin");            
+            try
+            {
+                Console.WriteLine("--- Trying to connect to " + LOCAL_REST_SERVER_URL);
+                sc = SchedulerClient.connect(LOCAL_REST_SERVER_URL, "admin", "admin");
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("--- !!! No Scheduler running on localhost !!! ... Trying to connect to " + TRY_REST_SERVER_URL);
+                try
+                {
+                    sc = SchedulerClient.connect(TRY_REST_SERVER_URL, "demo", "*****");
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine("--- !!! No Scheduler running on try !!! ... Unable to run the tests");
+                }
+            }
         }
 
         [ClassCleanup]
         public static void AfterAll()
         {
-            Console.WriteLine("----------------HLKJH---------------");
+            Console.WriteLine("----------------ClassCleanup---------------");
         }
 
         [TestMethod]
@@ -36,7 +53,7 @@ namespace Tests
         public void TestSubmitXml()
         {
             JobId jid = sc.SubmitXml(@"C:\tmp\ProActiveWorkflowsScheduling-windows-x64-6.0.1\samples\workflows\01_simple_task.xml");
-            
+
             Console.WriteLine("---> jobid.id = " + jid.Id);
             //Console.WriteLine("---> jobid.ReadableName = " + jid.ReadableName);
 

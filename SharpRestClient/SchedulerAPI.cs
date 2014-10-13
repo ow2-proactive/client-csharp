@@ -297,5 +297,5 @@ namespace SharpRestClient
         public string ProjectName { get; set; }
         [JsonProperty("tasks")]
         public IDictionary<string, TaskState> Tasks { get; set; }
-    }    
+    }
 }

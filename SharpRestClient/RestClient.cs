@@ -25,16 +25,28 @@ namespace SharpRestClient
         {
             
             RestClient restClient = new RestClient(restUrl);
-            //restClient.Authenticator = new SimpleAuthenticator("username", username, "password", password);
 
             var request = new RestRequest("/scheduler/login", Method.POST);
             request.AddParameter("username", username, ParameterType.GetOrPost);
             request.AddParameter("password", password, ParameterType.GetOrPost);
-           
-            IRestResponse response = restClient.Execute(request);
+
+            IRestResponse response =  restClient.Execute(request);
+
+            if (response.ErrorException != null) {
+                throw new InvalidOperationException("Unable to connect to " + restUrl, response.ErrorException);
+            }
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound) {
+                throw new InvalidOperationException("Unable to connect to " + restUrl + " descrition: " + response.StatusDescription);
+            }
 
             // if not exception and the response contect size is correct then it's ok
             string sessionid = response.Content;
+            //Console.WriteLine("---------------------status: " + response.ResponseStatus);
+            //Console.WriteLine("---------------------status: " + response.StatusCode);
+            //Console.WriteLine("---------------------received: " + sessionid);
+            
+
             restClient.Authenticator = new SIDAuthenticator(sessionid);            
             
             return new SchedulerClient(restClient, username, password);
