@@ -4,11 +4,13 @@ using RestSharp.Serializers;
 using System;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace SharpRestClient
 {
     public class SchedulerClient
     {
+        private const int REQUEST_TIMEOUT_MS = 600000;
 
         private readonly RestClient restClient;        
         private readonly string username;
@@ -21,7 +23,7 @@ namespace SharpRestClient
             this.password = newPassword;
         }
 
-        public static SchedulerClient connect(string restUrl, string username, string password)
+        public static SchedulerClient Connect(string restUrl, string username, string password)
         {
             
             RestClient restClient = new RestClient(restUrl);
@@ -42,14 +44,34 @@ namespace SharpRestClient
 
             // if not exception and the response contect size is correct then it's ok
             string sessionid = response.Content;
-            //Console.WriteLine("---------------------status: " + response.ResponseStatus);
-            //Console.WriteLine("---------------------status: " + response.StatusCode);
-            //Console.WriteLine("---------------------received: " + sessionid);
+            Console.WriteLine("---------------------status: " + response.ResponseStatus);
+            Console.WriteLine("---------------------status: " + response.StatusCode);
+            Console.WriteLine("---------------------received: " + sessionid);
             
 
             restClient.Authenticator = new SIDAuthenticator(sessionid);            
             
             return new SchedulerClient(restClient, username, password);
+        }
+
+        public bool IsConnected()
+        {
+            var request = new RestRequest("/scheduler/isconnected", Method.GET);
+            request.AddHeader("Accept", "application/json");
+
+            IRestResponse response = restClient.Execute(request);
+            string data = response.Content;            
+            return JsonConvert.DeserializeObject<bool>(data);            
+        }
+
+        public Version GetVersion()
+        {
+            var request = new RestRequest("/scheduler/version", Method.GET);
+            request.AddHeader("Accept", "application/json");
+
+            IRestResponse response = restClient.Execute(request);
+            string data = response.Content;
+            return JsonConvert.DeserializeObject<Version>(data);
         }
 
         public SchedulerStatus GetStatus()
@@ -120,8 +142,7 @@ namespace SharpRestClient
             FileStream xml = new FileStream(filePath, FileMode.Open);
             request.AddFile("file", ReadToEnd(xml), name, "application/xml");
             var response = restClient.Execute(request);
-
-            Console.WriteLine("------> " + response.Content);            
+            
             return JsonConvert.DeserializeObject<JobId>(response.Content);
         }
 
@@ -132,11 +153,46 @@ namespace SharpRestClient
             request.AddHeader("Accept", "application/json");
 
             IRestResponse response = restClient.Execute(request);
-            string data = response.Content;
-
-            Console.WriteLine("-------JSON DATA: " + data);
-
+            string data = response.Content;            
             return JsonConvert.DeserializeObject<JobState>(response.Content);
+        }
+
+        // based on GetJobState
+        public bool isJobAlive(JobId jobId)
+        {
+            return this.GetJobState(jobId).JobInfo.IsAlive();
+        }
+
+        // example PushFile("GLOBALSPACE", "", "file.txt", "c:\tmp\file.txt")
+        public bool PushFile(string spacename, string pathname, string filename, string file)
+        {
+            return this.PushFile(spacename, pathname, filename, file, SchedulerClient.REQUEST_TIMEOUT_MS);
+        }
+        
+        public bool PushFile(string spacename, string pathname, string filename, string file, int timeout)
+        {
+            StringBuilder urlBld = new StringBuilder("/scheduler/dataspace/");
+            // spacename: GLOBALSPACE or USERSPACE
+            urlBld.Append(spacename).Append("/");
+            // path example: /dir1/dir2/..
+            urlBld.Append(pathname);
+
+            var request = new RestRequest(urlBld.ToString(), Method.POST);
+            request.AddHeader("Content-Type", "multipart/form-data");
+            request.AddHeader("Accept", "application/json");
+            request.Timeout = 600000;
+
+            request.AddParameter("fileName", filename, ParameterType.GetOrPost);
+            using (FileStream xml = new FileStream(file, FileMode.Open))
+            {
+                request.AddFile("fileContent", ReadToEnd(xml), filename, "application/octet-stream");
+            }            
+
+            var response = restClient.Execute(request);
+            Console.WriteLine("-------------> response " + response.Content);
+            Console.WriteLine("---------------------status: " + response.ResponseStatus);
+            Console.WriteLine("---------------------status: " + response.StatusCode);
+            return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
         //method for converting stream to byte[]

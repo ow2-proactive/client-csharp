@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 namespace SharpRestClient
 {
+
     [JsonConverter(typeof(StringEnumConverter))]
     public enum SchedulerStatus
     {
@@ -189,7 +190,15 @@ namespace SharpRestClient
         SKIPPED
     }
 
-    public class TaskId
+    public sealed class Version
+    {
+        [JsonProperty("scheduler")]
+        public string Scheduler { get; set; }
+        [JsonProperty("rest")]
+        public string Rest { get; set; }
+    }
+
+    public sealed class TaskId
     {
         [JsonProperty("id")]
         public long Id { get; set; }
@@ -201,7 +210,7 @@ namespace SharpRestClient
         }
     }
 
-    public class JobId
+    public sealed class JobId
     {
         [JsonProperty("id")]
         public long Id { get; set; }
@@ -213,7 +222,7 @@ namespace SharpRestClient
         }
     }
 
-    public class TaskInfo
+    public sealed class TaskInfo
     {
         [JsonProperty("jobId")]
         public JobId JobId { get; set; }
@@ -235,7 +244,7 @@ namespace SharpRestClient
         public int NumberOfExecutionOnFailureLeft { get; set; }        
     }
 
-    public class TaskState
+    public sealed class TaskState
     {
         [JsonProperty("name")]
         public string Name { get; set; }
@@ -255,7 +264,7 @@ namespace SharpRestClient
         //public string ParallelEnvironment { get; set; }
     }
 
-    public class JobInfo
+    public sealed class JobInfo
     {
         [JsonProperty("startTime")]
         public long StartTime { get; set; }
@@ -281,9 +290,14 @@ namespace SharpRestClient
         public JobPriority Priority { get; set; }
         [JsonProperty("jobOwner")]
         public string Owner { get; set; }
+
+        public bool IsAlive()
+        {            
+            return this.Status == JobStatus.PENDING || this.Status == JobStatus.RUNNING || this.Status == JobStatus.STALLED || this.Status == JobStatus.PAUSED;
+        }
     }
 
-    public class JobState
+    public sealed class JobState
     {
         [JsonProperty("name")]
         public string Name { get; set; }
