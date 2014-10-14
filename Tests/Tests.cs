@@ -12,7 +12,7 @@ namespace Tests
 
         public static readonly string TRY_REST_SERVER_URL = "https://try.activeeon.com/rest";
 
-        public static SchedulerClient sc;        
+        public static SchedulerClient sc;
 
         [ClassInitialize]
         public static void BeforeAll(TestContext ctx)
@@ -39,7 +39,7 @@ namespace Tests
             // Check Scheduler Verison is 6.X
             SharpRestClient.Version ver = sc.GetVersion();
             Assert.IsNotNull(ver.Scheduler);
-            Assert.IsNotNull(ver.Rest);            
+            Assert.IsNotNull(ver.Rest);
             if (!ver.Scheduler.StartsWith("6"))
             {
                 Assert.Fail("The Scheduler version is not 6.X");
@@ -64,7 +64,7 @@ namespace Tests
 
         [TestMethod]
         public void GetSchedulerStatus()
-        {            
+        {
             Assert.AreEqual<SchedulerStatus>(SchedulerStatus.STARTED, sc.GetStatus());
         }
 
@@ -75,15 +75,15 @@ namespace Tests
             string tempFilePath = Path.GetTempFileName();
             FileInfo fileInfo = new FileInfo(tempFilePath);
             try
-            {                
-                Assert.IsTrue(sc.PushFile("GLOBALSPACE", "", fileInfo.Name, tempFilePath));                
+            {
+                // Upload a temp file
+                Assert.IsTrue(sc.PushFile("GLOBALSPACE", "", fileInfo.Name, tempFilePath));
             }
             finally
-            {                
-                fileInfo.Delete();                
-            }            
-            // Download the file from GLOBALSPACE
-            Assert.IsTrue(sc.PullFile("GLOBALSPACE", fileInfo.Name, fileInfo.FullName));            
+            {
+                fileInfo.Delete();
+            }
+            Assert.IsTrue(sc.PullFile("GLOBALSPACE", fileInfo.Name, fileInfo.FullName));
             Assert.IsTrue(fileInfo.Exists);
             fileInfo.Delete();
         }
@@ -95,7 +95,7 @@ namespace Tests
             Assert.AreNotEqual<long>(0, jid.Id);
             Assert.AreEqual<string>("01_simple_task", jid.ReadableName);
             Assert.AreEqual<bool>(true, sc.isJobAlive(jid));
-            //JobState jobState = sc.GetJobState(jid);            
+            //JobState jobState = sc.GetJobState(jid);
             System.Threading.Thread.Sleep(5000);
             Assert.AreEqual<bool>(false, sc.PauseJob(jid));
             Assert.AreEqual<bool>(false, sc.ResumeJob(jid));
