@@ -180,8 +180,7 @@ namespace SharpRestClient
             var request = new RestRequest(urlBld.ToString(), Method.POST);
             request.AddHeader("Content-Type", "multipart/form-data");
             request.AddHeader("Accept", "application/json");
-            request.Timeout = 600000;
-
+            request.Timeout = timeout;
             request.AddParameter("fileName", filename, ParameterType.GetOrPost);
             using (FileStream xml = new FileStream(file, FileMode.Open))
             {
@@ -189,10 +188,29 @@ namespace SharpRestClient
             }            
 
             var response = restClient.Execute(request);
-            Console.WriteLine("-------------> response " + response.Content);
-            Console.WriteLine("---------------------status: " + response.ResponseStatus);
-            Console.WriteLine("---------------------status: " + response.StatusCode);
+            //Console.WriteLine("-------------> response " + response.Content);
+            //Console.WriteLine("---------------------status: " + response.ResponseStatus);
+            //Console.WriteLine("---------------------status: " + response.StatusCode);
             return JsonConvert.DeserializeObject<bool>(response.Content);
+        }
+
+        // !! DANGEROUS !! - Loads all data in memory before writing to a file
+        public bool PullFile(String spacename, String pathname, String outputFile)
+        {
+            StringBuilder urlBld = new StringBuilder("/scheduler/dataspace/");
+            // spacename: GLOBALSPACE or USERSPACE
+            urlBld.Append(spacename).Append("/");
+            // path example: /dir1/dir2/..
+            urlBld.Append(pathname);
+
+            var request = new RestRequest(urlBld.ToString(), Method.GET);
+            request.AddHeader("Accept", "application/octet-stream");
+            //var response = restClient.Execute(request);
+            byte[] data = restClient.DownloadData(request);
+
+            File.WriteAllBytes(outputFile, data);
+
+            return true;
         }
 
         //method for converting stream to byte[]

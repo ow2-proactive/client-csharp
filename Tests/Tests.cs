@@ -75,14 +75,17 @@ namespace Tests
             string tempFilePath = Path.GetTempFileName();
             FileInfo fileInfo = new FileInfo(tempFilePath);
             try
-            {
-                bool ok = sc.PushFile("GLOBALSPACE", "", fileInfo.Name, tempFilePath);
-                Assert.IsTrue(ok);
+            {                
+                Assert.IsTrue(sc.PushFile("GLOBALSPACE", "", fileInfo.Name, tempFilePath));                
             }
             finally
-            {
-                fileInfo.Delete();
-            }
+            {                
+                fileInfo.Delete();                
+            }            
+            // Download the file from GLOBALSPACE
+            Assert.IsTrue(sc.PullFile("GLOBALSPACE", fileInfo.Name, fileInfo.FullName));            
+            Assert.IsTrue(fileInfo.Exists);
+            fileInfo.Delete();
         }
 
         [TestMethod]
