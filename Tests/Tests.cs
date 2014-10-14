@@ -96,7 +96,7 @@ namespace Tests
             Assert.AreEqual<string>("01_simple_task", jid.ReadableName);
             Assert.AreEqual<bool>(true, sc.isJobAlive(jid));
             //JobState jobState = sc.GetJobState(jid);
-            System.Threading.Thread.Sleep(5000);
+            System.Threading.Thread.Sleep(10000);
             Assert.AreEqual<bool>(false, sc.PauseJob(jid));
             Assert.AreEqual<bool>(false, sc.ResumeJob(jid));
             Assert.AreEqual<bool>(true, sc.KillJob(jid));
