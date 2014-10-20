@@ -146,14 +146,14 @@ namespace SharpRestClient
             return JsonConvert.DeserializeObject<JobId>(response.Content);
         }
 
-        public JobState GetJobState(JobId jobId)        
+        public JobState GetJobState(JobId jobId)
         {
             var request = new RestRequest("/scheduler/jobs/{jobid}", Method.GET);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddHeader("Accept", "application/json");
 
             IRestResponse response = restClient.Execute(request);
-            string data = response.Content;            
+            string data = response.Content;
             return JsonConvert.DeserializeObject<JobState>(response.Content);
         }
 
@@ -162,6 +162,19 @@ namespace SharpRestClient
         {
             return this.GetJobState(jobId).JobInfo.IsAlive();
         }
+
+        /**
+        public JobResult GetJobResult()
+        {
+            var request = new RestRequest("/scheduler/jobs/{jobid}", Method.GET);
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.AddHeader("Accept", "application/json");
+
+            IRestResponse response = restClient.Execute(request);
+            string data = response.Content;
+            return JsonConvert.DeserializeObject<JobResult>(response.Content);
+        }
+         * /
 
         // example PushFile("GLOBALSPACE", "", "file.txt", "c:\tmp\file.txt")
         public bool PushFile(string spacename, string pathname, string filename, string file)
