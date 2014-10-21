@@ -1,18 +1,20 @@
 ﻿using Newtonsoft.Json;
 using RestSharp;
-using RestSharp.Serializers;
 using System;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SharpRestClient
 {
     public class SchedulerClient
     {
         private const int REQUEST_TIMEOUT_MS = 600000;
+        private const int RETRY_INTERVAL_MS = 1000;
 
-        private readonly RestClient restClient;        
+        private readonly RestClient restClient;
         private readonly string username;
         private readonly string password; // to do later use SecureString see http://www.experts-exchange.com/Programming/Languages/.NET/Q_22829139.html        
 
@@ -25,20 +27,22 @@ namespace SharpRestClient
 
         public static SchedulerClient Connect(string restUrl, string username, string password)
         {
-            
+
             RestClient restClient = new RestClient(restUrl);
 
             var request = new RestRequest("/scheduler/login", Method.POST);
             request.AddParameter("username", username, ParameterType.GetOrPost);
             request.AddParameter("password", password, ParameterType.GetOrPost);
 
-            IRestResponse response =  restClient.Execute(request);
+            IRestResponse response = restClient.Execute(request);
 
-            if (response.ErrorException != null) {
+            if (response.ErrorException != null)
+            {
                 throw new InvalidOperationException("Unable to connect to " + restUrl, response.ErrorException);
             }
 
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound) {
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
                 throw new InvalidOperationException("Unable to connect to " + restUrl + " descrition: " + response.StatusDescription);
             }
 
@@ -47,10 +51,8 @@ namespace SharpRestClient
             Console.WriteLine("---------------------status: " + response.ResponseStatus);
             Console.WriteLine("---------------------status: " + response.StatusCode);
             Console.WriteLine("---------------------received: " + sessionid);
-            
+            restClient.Authenticator = new SIDAuthenticator(sessionid);
 
-            restClient.Authenticator = new SIDAuthenticator(sessionid);            
-            
             return new SchedulerClient(restClient, username, password);
         }
 
@@ -60,8 +62,8 @@ namespace SharpRestClient
             request.AddHeader("Accept", "application/json");
 
             IRestResponse response = restClient.Execute(request);
-            string data = response.Content;            
-            return JsonConvert.DeserializeObject<bool>(data);            
+            string data = response.Content;
+            return JsonConvert.DeserializeObject<bool>(data);
         }
 
         public Version GetVersion()
@@ -84,11 +86,11 @@ namespace SharpRestClient
             return JsonConvert.DeserializeObject<SchedulerStatus>(data);
         }
 
-        public bool PauseJob(JobId jobId) 
+        public bool PauseJob(JobId jobId)
         {
             var request = new RestRequest("/scheduler/jobs/{jobid}/pause", Method.PUT);
             request.AddHeader("Accept", "application/json");
-            request.AddUrlSegment( "jobid", Convert.ToString(jobId.Id));
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
 
             IRestResponse response = restClient.Execute(request);
             string data = response.Content;
@@ -136,13 +138,13 @@ namespace SharpRestClient
             request.AddHeader("Content-Type", "multipart/form-data");
             request.AddHeader("Accept", "application/json");
             request.Timeout = 600000;
-            
+
             string name = Path.GetFileName(filePath);
 
             FileStream xml = new FileStream(filePath, FileMode.Open);
             request.AddFile("file", ReadToEnd(xml), name, "application/xml");
             var response = restClient.Execute(request);
-            
+
             return JsonConvert.DeserializeObject<JobId>(response.Content);
         }
 
@@ -163,25 +165,58 @@ namespace SharpRestClient
             return this.GetJobState(jobId).JobInfo.IsAlive();
         }
 
-        /**
-        public JobResult GetJobResult()
+
+        public JobResult GetJobResult(JobId jobId)
         {
-            var request = new RestRequest("/scheduler/jobs/{jobid}", Method.GET);
+            var request = new RestRequest("/scheduler/jobs/{jobid}/result", Method.GET);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.AddHeader("Accept-Encoding", "gzip");
             request.AddHeader("Accept", "application/json");
 
             IRestResponse response = restClient.Execute(request);
             string data = response.Content;
+            Console.WriteLine("---------------------status: " + data);
             return JsonConvert.DeserializeObject<JobResult>(response.Content);
         }
-         * /
+
+        public JobResult WaitForJob(JobId jobId, int timeout)
+        {
+            var cts = new CancellationTokenSource(timeout);
+            Task<JobResult> tr = Task.Run(async delegate
+                {
+                    return await WaitForJobAsync(jobId, cts.Token);
+                }
+            );
+            tr.Wait();
+            return tr.Result;
+        }
+
+        private async Task<JobResult> WaitForJobAsync(JobId jobId, CancellationToken cancelToken)
+        {
+            JobState state = GetJobState(jobId);
+            if (!state.JobInfo.IsAlive())
+            {
+                return await Task.Run(() =>
+                {
+                    return GetJobResult(jobId);
+                }, cancelToken);
+            }
+            else
+            {
+                await Task.Delay(1000, cancelToken);
+                return await Task.Run(() =>
+                {
+                    return WaitForJobAsync(jobId, cancelToken);
+                }, cancelToken);
+            }
+        }
 
         // example PushFile("GLOBALSPACE", "", "file.txt", "c:\tmp\file.txt")
         public bool PushFile(string spacename, string pathname, string filename, string file)
         {
             return this.PushFile(spacename, pathname, filename, file, SchedulerClient.REQUEST_TIMEOUT_MS);
         }
-        
+
         public bool PushFile(string spacename, string pathname, string filename, string file, int timeout)
         {
             StringBuilder urlBld = new StringBuilder("/scheduler/dataspace/");
@@ -198,7 +233,7 @@ namespace SharpRestClient
             using (FileStream xml = new FileStream(file, FileMode.Open))
             {
                 request.AddFile("fileContent", ReadToEnd(xml), filename, "application/octet-stream");
-            }            
+            }
 
             var response = restClient.Execute(request);
             //Console.WriteLine("-------------> response " + response.Content);

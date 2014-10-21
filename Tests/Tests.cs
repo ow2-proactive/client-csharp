@@ -91,16 +91,21 @@ namespace Tests
         [TestMethod]
         public void SubmitXml()
         {
-            JobId jid = sc.SubmitXml(@"C:\tmp\ProActiveWorkflowsScheduling-windows-x64-6.0.1\samples\workflows\01_simple_task.xml");
+            //string taskName = "01_simple_task";
+            string taskName = "result";
+            JobId jid = sc.SubmitXml(@"C:\tmp\ProActiveWorkflowsScheduling-windows-x64-6.0.1\samples\workflows\"+taskName+".xml");
             Assert.AreNotEqual<long>(0, jid.Id);
-            Assert.AreEqual<string>("01_simple_task", jid.ReadableName);
-            Assert.AreEqual<bool>(true, sc.isJobAlive(jid));
+            Assert.AreEqual<string>(taskName, jid.ReadableName);
+            //Assert.AreEqual<bool>(true, sc.isJobAlive(jid));
             //JobState jobState = sc.GetJobState(jid);
-            //System.Threading.Thread.Sleep(10000);
-            Assert.AreEqual<bool>(false, sc.PauseJob(jid));
-            Assert.AreEqual<bool>(false, sc.ResumeJob(jid));
-            Assert.AreEqual<bool>(true, sc.KillJob(jid));
-            Assert.AreEqual<bool>(true, sc.RemoveJob(jid));
+            //System.Threading.Thread.Sleep(15000);
+            JobResult res = sc.WaitForJob(jid, 20000);
+            // Assert.AreEqual<bool>(true, sc.PauseJob(jid),"Unable to pause the job");
+            // Assert.AreEqual<bool>(true, sc.ResumeJob(jid), "Unable to resume the job");
+            // Assert.AreEqual<bool>(true, sc.KillJob(jid), "Unable to kill the job");
+            // Assert.AreEqual<bool>(true, sc.RemoveJob(jid), "Unable to remove the job");
+            //JobResult jobResult = sc.GetJobResult(jid);
+            Console.WriteLine("---> " + res);
         }
     }
 }

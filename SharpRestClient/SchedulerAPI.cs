@@ -266,6 +266,8 @@ namespace SharpRestClient
 
     public sealed class JobInfo
     {
+        [JsonProperty("id")]
+        public JobId JobId { get; set; }
         [JsonProperty("startTime")]
         public long StartTime { get; set; }
         [JsonProperty("finishedTime")]
@@ -276,8 +278,6 @@ namespace SharpRestClient
         public long RemovedTime { get; set; }
         [JsonProperty("status")]
         public JobStatus Status { get; set; }
-        [JsonProperty("id")]
-        public string JobId { get; set; }
         [JsonProperty("totalNumberOfTasks")]
         public int TotalNumberOfTasks { get; set; }
         [JsonProperty("numberOfPendingTasks")]
@@ -311,5 +311,25 @@ namespace SharpRestClient
         public string ProjectName { get; set; }
         [JsonProperty("tasks")]
         public IDictionary<string, TaskState> Tasks { get; set; }
+    }
+
+    public sealed class TaskResult
+    {
+        [JsonProperty("taskId")]
+        public TaskId TaskId { get; set; }
+        [JsonProperty("serializedValue")]
+        public byte[] SerializedValue { get; set; }
+    }
+
+    public sealed class JobResult
+    {
+        [JsonProperty("id")]
+        public JobId JobId { get; set; }
+        [JsonProperty("allResults")]
+        public IDictionary<string, TaskResult> Tasks { get; set; }
+        public override string ToString()
+        {
+            return string.Format("Job#{0} have {1} tasks results", JobId.Id, Tasks.Count);
+        }
     }
 }
