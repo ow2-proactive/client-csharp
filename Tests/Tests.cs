@@ -2,6 +2,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SharpRestClient;
 using System.IO;
+using SharpRestClient.Exceptions;
 
 namespace Tests
 {
@@ -91,21 +92,96 @@ namespace Tests
         [TestMethod]
         public void SubmitXml()
         {
-            //string taskName = "01_simple_task";
-            string taskName = "result";
-            JobId jid = sc.SubmitXml(@"C:\tmp\ProActiveWorkflowsScheduling-windows-x64-6.0.1\samples\workflows\"+taskName+".xml");
-            Assert.AreNotEqual<long>(0, jid.Id);
-            Assert.AreEqual<string>(taskName, jid.ReadableName);
+            string jobname = "script_task_with_result";
+            JobId jid = sc.SubmitXml(Path.Combine(Environment.CurrentDirectory, @"workflow\" + jobname + ".xml"));
+            Assert.AreNotEqual<long>(0, jid.Id, "After submission the job id is invalid!");
             //Assert.AreEqual<bool>(true, sc.isJobAlive(jid));
             //JobState jobState = sc.GetJobState(jid);
             //System.Threading.Thread.Sleep(15000);
-            JobResult res = sc.WaitForJob(jid, 20000);
+            // JobResult res = sc.WaitForJob(jid, 20000);
+
             // Assert.AreEqual<bool>(true, sc.PauseJob(jid),"Unable to pause the job");
             // Assert.AreEqual<bool>(true, sc.ResumeJob(jid), "Unable to resume the job");
             // Assert.AreEqual<bool>(true, sc.KillJob(jid), "Unable to kill the job");
             // Assert.AreEqual<bool>(true, sc.RemoveJob(jid), "Unable to remove the job");
             //JobResult jobResult = sc.GetJobResult(jid);
-            Console.WriteLine("---> " + res);
+            //Console.WriteLine("---> " + res);
+        }
+
+        [TestMethod]
+        public void PauseResumeJob()
+        {
+            string jobname = "script_task_with_result";
+            JobId jid = sc.SubmitXml(Path.Combine(Environment.CurrentDirectory, @"workflow\" + jobname + ".xml"));
+            try
+            {
+                bool isPaused = sc.PauseJob(jid);
+                Assert.AreEqual<bool>(true, isPaused, "Unable to pause the job!");
+                bool isResumed = sc.ResumeJob(jid);
+                Assert.AreEqual<bool>(true, isResumed, "Unable to resume the job!");
+            }
+            finally
+            {
+                sc.RemoveJob(jid);
+            }
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(UnknownJobException))]
+        public void PauseJob_UnknwonJobException()
+        {
+            // Check unknown jobid
+            JobId invalidJid = new JobId();
+            sc.PauseJob(invalidJid);
+        }
+
+        [TestMethod]
+        public void WaitForJob()
+        {
+            string jobname = "script_task_with_result";
+            JobId jid = sc.SubmitXml(Path.Combine(Environment.CurrentDirectory, @"workflow\" + jobname + ".xml"));
+            try
+            {
+                sc.WaitForJob(jid, 30000);
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(TimeoutException))]
+        public void WaitForJob_TimeoutException()
+        {
+            string jobname = "one_minute_script_task";
+            JobId jid = sc.SubmitXml(Path.Combine(Environment.CurrentDirectory, @"workflow\" + jobname + ".xml"));
+            try
+            {
+                sc.WaitForJob(jid, 1000);
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(UnknownJobException))]
+        public void WaitForJob_UnknownJobException()
+        {
+            JobId invalidJid = new JobId();
+            sc.WaitForJob(invalidJid, 1000);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(UnknownJobException))]
+        public void GetJobState_UnknownJobException()
+        {
+            JobId invalidJid = new JobId();
+            sc.GetJobState(invalidJid);
         }
     }
 }

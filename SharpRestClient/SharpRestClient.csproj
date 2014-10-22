@@ -50,6 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CommonAPI.cs" />
+    <Compile Include="Exceptions.cs" />
     <Compile Include="JsonSerializer.cs" />
     <Compile Include="ResourceManagerAPI.cs" />
     <Compile Include="RestClient.cs" />

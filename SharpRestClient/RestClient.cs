@@ -6,6 +6,8 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpRestClient.Exceptions;
+using Newtonsoft.Json.Linq;
 
 namespace SharpRestClient
 {
@@ -86,6 +88,9 @@ namespace SharpRestClient
             return JsonConvert.DeserializeObject<SchedulerStatus>(data);
         }
 
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public bool PauseJob(JobId jobId)
         {
             var request = new RestRequest("/scheduler/jobs/{jobid}/pause", Method.PUT);
@@ -94,6 +99,11 @@ namespace SharpRestClient
 
             IRestResponse response = restClient.Execute(request);
             string data = response.Content;
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                dynamic obj = JObject.Parse(data);
+                throw new UnknownJobException((string)obj.errorMessage);
+            }
             return JsonConvert.DeserializeObject<bool>(data);
         }
 
@@ -140,9 +150,11 @@ namespace SharpRestClient
             request.Timeout = 600000;
 
             string name = Path.GetFileName(filePath);
-
-            FileStream xml = new FileStream(filePath, FileMode.Open);
-            request.AddFile("file", ReadToEnd(xml), name, "application/xml");
+            
+            using (var xml = new FileStream(filePath, FileMode.Open))
+            {
+                request.AddFile("file", ReadToEnd(xml), name, "application/xml");
+            }
             var response = restClient.Execute(request);
 
             return JsonConvert.DeserializeObject<JobId>(response.Content);
@@ -156,6 +168,11 @@ namespace SharpRestClient
 
             IRestResponse response = restClient.Execute(request);
             string data = response.Content;
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                dynamic obj = JObject.Parse(data);
+                throw new UnknownJobException((string)obj.errorMessage);
+            }
             return JsonConvert.DeserializeObject<JobState>(response.Content);
         }
 
@@ -164,7 +181,6 @@ namespace SharpRestClient
         {
             return this.GetJobState(jobId).JobInfo.IsAlive();
         }
-
 
         public JobResult GetJobResult(JobId jobId)
         {
@@ -175,19 +191,38 @@ namespace SharpRestClient
 
             IRestResponse response = restClient.Execute(request);
             string data = response.Content;
-            Console.WriteLine("---------------------status: " + data);
             return JsonConvert.DeserializeObject<JobResult>(response.Content);
         }
 
-        public JobResult WaitForJob(JobId jobId, int timeout)
+        /// <summary>
+        /// The job is paused waiting for user to resume it.
+        /// NotConnectedException, UnknownJobException, PermissionException, TimeoutException
+        /// </summary>
+        public JobResult WaitForJob(JobId jobId, int timeoutInMs)
         {
-            var cts = new CancellationTokenSource(timeout);
+            var cts = new CancellationTokenSource(timeoutInMs);
             Task<JobResult> tr = Task.Run(async delegate
                 {
                     return await WaitForJobAsync(jobId, cts.Token);
+                }, cts.Token);
+            try
+            {
+                tr.Wait();
+            }
+            catch (AggregateException ae)
+            {
+                foreach (var e in ae.InnerExceptions)
+                {
+                    if (e is TaskCanceledException) // occurs in case of timeout
+                    {
+                        throw new TimeoutException("Timeout waiting for the job " + jobId);
+                    }
+                    else
+                    {
+                        throw e;
+                    }
                 }
-            );
-            tr.Wait();
+            }
             return tr.Result;
         }
 
@@ -196,18 +231,12 @@ namespace SharpRestClient
             JobState state = GetJobState(jobId);
             if (!state.JobInfo.IsAlive())
             {
-                return await Task.Run(() =>
-                {
-                    return GetJobResult(jobId);
-                }, cancelToken);
+                return GetJobResult(jobId);
             }
             else
             {
-                await Task.Delay(1000, cancelToken);
-                return await Task.Run(() =>
-                {
-                    return WaitForJobAsync(jobId, cancelToken);
-                }, cancelToken);
+                await Task.Delay(RETRY_INTERVAL_MS, cancelToken);
+                return await WaitForJobAsync(jobId, cancelToken);
             }
         }
 
