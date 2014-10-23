@@ -3,6 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SharpRestClient;
 using System.IO;
 using SharpRestClient.Exceptions;
+using System.Collections.Generic;
 
 namespace Tests
 {
@@ -93,26 +94,24 @@ namespace Tests
         public void SubmitXml()
         {
             string jobname = "script_task_with_result";
-            JobId jid = sc.SubmitXml(Path.Combine(Environment.CurrentDirectory, @"workflow\" + jobname + ".xml"));
-            Assert.AreNotEqual<long>(0, jid.Id, "After submission the job id is invalid!");
-            //Assert.AreEqual<bool>(true, sc.isJobAlive(jid));
-            //JobState jobState = sc.GetJobState(jid);
-            //System.Threading.Thread.Sleep(15000);
-            // JobResult res = sc.WaitForJob(jid, 20000);
-
-            // Assert.AreEqual<bool>(true, sc.PauseJob(jid),"Unable to pause the job");
-            // Assert.AreEqual<bool>(true, sc.ResumeJob(jid), "Unable to resume the job");
-            // Assert.AreEqual<bool>(true, sc.KillJob(jid), "Unable to kill the job");
-            // Assert.AreEqual<bool>(true, sc.RemoveJob(jid), "Unable to remove the job");
-            //JobResult jobResult = sc.GetJobResult(jid);
-            //Console.WriteLine("---> " + res);
+            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            try
+            {
+                Assert.AreNotEqual<long>(0, jid.Id, "After submission the job id is invalid!");
+                Assert.AreEqual<string>(jobname, jid.ReadableName, "After submission the job name is invalid!");
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
         }
 
         [TestMethod]
         public void PauseResumeJob()
         {
             string jobname = "script_task_with_result";
-            JobId jid = sc.SubmitXml(Path.Combine(Environment.CurrentDirectory, @"workflow\" + jobname + ".xml"));
+            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
             try
             {
                 bool isPaused = sc.PauseJob(jid);
@@ -136,13 +135,16 @@ namespace Tests
         }
 
         [TestMethod]
-        public void WaitForJob()
+        public void WaitForJobResult()
         {
             string jobname = "script_task_with_result";
-            JobId jid = sc.SubmitXml(Path.Combine(Environment.CurrentDirectory, @"workflow\" + jobname + ".xml"));
+            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
             try
             {
-                sc.WaitForJob(jid, 30000);
+                JobResult jr = sc.WaitForJobResult(jid, 30000);
+                Assert.IsNotNull(jr);
+                TaskResult tr = jr.Tasks["simple_task"];
+                Assert.IsNotNull(tr);
             }
             finally
             {
@@ -153,13 +155,13 @@ namespace Tests
 
         [TestMethod]
         [ExpectedException(typeof(TimeoutException))]
-        public void WaitForJob_TimeoutException()
+        public void WaitForJobResult_TimeoutException()
         {
             string jobname = "one_minute_script_task";
-            JobId jid = sc.SubmitXml(Path.Combine(Environment.CurrentDirectory, @"workflow\" + jobname + ".xml"));
+            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
             try
             {
-                sc.WaitForJob(jid, 1000);
+                sc.WaitForJobResult(jid, 1000);
             }
             finally
             {
@@ -170,10 +172,29 @@ namespace Tests
 
         [TestMethod]
         [ExpectedException(typeof(UnknownJobException))]
-        public void WaitForJob_UnknownJobException()
+        public void WaitForJobResult_UnknownJobException()
         {
             JobId invalidJid = new JobId();
-            sc.WaitForJob(invalidJid, 1000);
+            sc.WaitForJobResult(invalidJid, 1000);
+        }
+
+        [TestMethod]
+        public void WaitForJobResultValue()
+        {
+            string jobname = "script_task_with_result";
+            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            try
+            {
+                IDictionary<string,string> jr = sc.WaitForJobResultValue(jid, 30000);
+                Assert.IsNotNull(jr);
+                string value = jr["simple_task"];
+                Assert.AreEqual<string>("hello", value, "Invalid result value!");
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
         }
 
         [TestMethod]
@@ -182,6 +203,11 @@ namespace Tests
         {
             JobId invalidJid = new JobId();
             sc.GetJobState(invalidJid);
+        }
+
+        private static string GetWorkflowPath(string name)
+        {
+            return Path.Combine(Environment.CurrentDirectory, @"workflow\" + name + ".xml");
         }
     }
 }
