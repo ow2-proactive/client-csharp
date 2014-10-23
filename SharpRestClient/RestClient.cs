@@ -174,7 +174,7 @@ namespace SharpRestClient
                 dynamic obj = JObject.Parse(data);
                 throw new UnknownJobException((string)obj.errorMessage);
             }
-            return JsonConvert.DeserializeObject<JobState>(response.Content);
+            return JsonConvert.DeserializeObject<JobState>(data);
         }
 
         // based on GetJobState
@@ -295,6 +295,35 @@ namespace SharpRestClient
                 await Task.Delay(RETRY_INTERVAL_MS, cancelToken);
                 return await WaitForJobResultValueAsync(jobId, cancelToken);
             }
+        }
+
+
+        /**
+         * Change the priority of the job represented by jobId.<br>
+         * Only administrator can change the priority to HIGH, HIGEST, IDLE.
+         *
+         * @param jobId the job on which to change the priority.
+         * @param priority The new priority to apply to the job.
+         * @throws NotConnectedException if you are not authenticated.
+         * @throws UnknownJobException if the job does not exist.
+         * @throws PermissionException if you can't access to this particular job.
+         * @throws JobAlreadyFinishedException if you want to change the priority on a finished job.
+         */
+        public void ChangeJobPriority(JobId jobId, JobPriority priority)
+        {
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/priority/byvalue/{value}", Method.PUT);
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.AddUrlSegment("value", Convert.ToString((int)priority));
+
+            IRestResponse response = restClient.Execute(request);
+
+            string data = response.Content;
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                dynamic obj = JObject.Parse(data);
+                throw new UnknownJobException((string)obj.errorMessage);
+            }
+            // todo process errors
         }
 
         // example PushFile("GLOBALSPACE", "", "file.txt", "c:\tmp\file.txt")

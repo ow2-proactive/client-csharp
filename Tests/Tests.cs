@@ -198,11 +198,54 @@ namespace Tests
         }
 
         [TestMethod]
+        [ExpectedException(typeof(TimeoutException))]
+        public void WaitForJobResultValue_TimeoutException()
+        {
+            string jobname = "one_minute_script_task";
+            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            try
+            {
+                sc.WaitForJobResultValue(jid, 1000);
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(UnknownJobException))]
+        public void WaitForJobResultValue_UnknownJobException()
+        {
+            JobId invalidJid = new JobId();
+            sc.WaitForJobResultValue(invalidJid, 1000);
+        }
+
+        [TestMethod]
         [ExpectedException(typeof(UnknownJobException))]
         public void GetJobState_UnknownJobException()
         {
             JobId invalidJid = new JobId();
             sc.GetJobState(invalidJid);
+        }
+
+        [TestMethod]
+        public void ChangeJobPriority()
+        {
+            string jobname = "one_minute_script_task";
+            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            try
+            {
+                sc.ChangeJobPriority(jid, JobPriority.IDLE);
+                JobState jobState = sc.GetJobState(jid);
+                Assert.AreEqual<JobPriority>(JobPriority.IDLE, jobState.Priority, "Invalid job priority, the ChangeJobPriority method has no effect!");
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
         }
 
         private static string GetWorkflowPath(string name)
