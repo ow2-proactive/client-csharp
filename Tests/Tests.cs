@@ -71,7 +71,7 @@ namespace Tests
         }
 
         [TestMethod]
-        public void PushPullFile()
+        public void PushPullDeleteFile()
         {
             // Create temp file in temp dir
             string tempFilePath = Path.GetTempFileName();
@@ -83,11 +83,18 @@ namespace Tests
             }
             finally
             {
-                fileInfo.Delete();
+                // Delete the local file
+                fileInfo.Delete(); 
             }
             Assert.IsTrue(sc.PullFile("GLOBALSPACE", fileInfo.Name, fileInfo.FullName));
             Assert.IsTrue(fileInfo.Exists);
+            // Delete the pulled local file
             fileInfo.Delete();
+            // Delete the remote file
+            Assert.IsTrue(sc.DeleteFile("GLOBALSPACE", fileInfo.Name));
+            Assert.IsFalse(sc.DeleteFile("GLOBALSPACE", fileInfo.Name));
+            // Check that the file does not exits anymore
+            Assert.IsFalse(sc.PullFile("GLOBALSPACE", fileInfo.Name, fileInfo.FullName));
         }
 
         [TestMethod]

@@ -67,6 +67,7 @@ namespace SharpRestClient
 
             IRestResponse response = restClient.Execute(request);
             string data = response.Content;
+            Console.WriteLine("--> " + response.StatusCode);
             return JsonConvert.DeserializeObject<bool>(data);
         }
 
@@ -317,7 +318,7 @@ namespace SharpRestClient
 
             IRestResponse response = restClient.Execute(request);
 
-            string data = response.Content;
+            string data = response.Content;            
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
                 dynamic obj = JObject.Parse(data);
@@ -340,7 +341,7 @@ namespace SharpRestClient
             // path example: /dir1/dir2/..
             urlBld.Append(pathname);
 
-            var request = new RestRequest(urlBld.ToString(), Method.POST);
+            RestRequest request = new RestRequest(urlBld.ToString(), Method.POST);
             request.AddHeader("Content-Type", "multipart/form-data");
             request.AddHeader("Accept", "application/json");
             request.Timeout = timeout;
@@ -358,7 +359,7 @@ namespace SharpRestClient
         }
 
         // !! DANGEROUS !! - Loads all data in memory before writing to a file
-        public bool PullFile(String spacename, String pathname, String outputFile)
+        public bool PullFile(string spacename, string pathname, string outputFile)
         {
             StringBuilder urlBld = new StringBuilder("/scheduler/dataspace/");
             // spacename: GLOBALSPACE or USERSPACE
@@ -366,14 +367,29 @@ namespace SharpRestClient
             // path example: /dir1/dir2/..
             urlBld.Append(pathname);
 
-            var request = new RestRequest(urlBld.ToString(), Method.GET);
+            RestRequest request = new RestRequest(urlBld.ToString(), Method.GET);
             request.AddHeader("Accept", "application/octet-stream");
-            //var response = restClient.Execute(request);
             byte[] data = restClient.DownloadData(request);
 
             File.WriteAllBytes(outputFile, data);
 
             return true;
+        }
+
+        public bool DeleteFile(string spacename, string pathname)
+        {
+            StringBuilder urlBld = new StringBuilder("/scheduler/dataspace/");
+            // spacename: GLOBALSPACE or USERSPACE
+            urlBld.Append(spacename).Append("/");
+            // path example: /dir1/dir2/..
+            urlBld.Append(pathname);
+            RestRequest request = new RestRequest(urlBld.ToString(), Method.DELETE);
+
+            var response = restClient.Execute(request);
+            Console.WriteLine("-------------> response " + response.Content);
+            Console.WriteLine("---------------------status: " + response.ResponseStatus);
+            Console.WriteLine("---------------------status: " + response.StatusCode);
+            return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
         //method for converting stream to byte[]
