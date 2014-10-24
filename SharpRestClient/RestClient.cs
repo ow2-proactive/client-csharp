@@ -60,15 +60,36 @@ namespace SharpRestClient
             return new SchedulerClient(restClient, username, password);
         }
 
+        private static void ThrowIfNotOK(IRestResponse response)
+        {
+            dynamic obj;
+            switch (response.StatusCode)
+            {
+                case System.Net.HttpStatusCode.NotFound:
+                    obj = JObject.Parse(response.Content);
+                    throw ExceptionMapper.GetNotFound((string)obj.exceptionClass, (string)obj.errorMessage);
+                case System.Net.HttpStatusCode.InternalServerError:
+                    obj = JObject.Parse(response.Content);
+                    throw ExceptionMapper.FromInternalError((string)obj.exceptionClass, (string)obj.errorMessage);
+                case System.Net.HttpStatusCode.Forbidden:
+                    obj = JObject.Parse(response.Content);
+                    throw ExceptionMapper.FromForbidden((string)obj.exceptionClass, (string)obj.errorMessage);
+                case System.Net.HttpStatusCode.Unauthorized:
+                    obj = JObject.Parse(response.Content);
+                    throw ExceptionMapper.FromUnauthorized((string)obj.exceptionClass, (string)obj.errorMessage);
+                default:
+                    break;
+            }
+        }
+
         public bool IsConnected()
         {
             RestRequest request = new RestRequest("/scheduler/isconnected", Method.GET);
             request.AddHeader("Accept", "application/json");
 
             IRestResponse response = restClient.Execute(request);
-            string data = response.Content;
-            Console.WriteLine("--> " + response.StatusCode);
-            return JsonConvert.DeserializeObject<bool>(data);
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
         public Version GetVersion()
@@ -77,8 +98,8 @@ namespace SharpRestClient
             request.AddHeader("Accept", "application/json");
 
             IRestResponse response = restClient.Execute(request);
-            string data = response.Content;
-            return JsonConvert.DeserializeObject<Version>(data);
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<Version>(response.Content);
         }
 
         public SchedulerStatus GetStatus()
@@ -87,8 +108,8 @@ namespace SharpRestClient
             request.AddHeader("Accept", "application/json");
 
             IRestResponse response = restClient.Execute(request);
-            string data = response.Content;
-            return JsonConvert.DeserializeObject<SchedulerStatus>(data);
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<SchedulerStatus>(response.Content);
         }
 
         /// <summary>
@@ -101,13 +122,8 @@ namespace SharpRestClient
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
 
             IRestResponse response = restClient.Execute(request);
-            string data = response.Content;
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                dynamic obj = JObject.Parse(data);
-                throw new UnknownJobException((string)obj.errorMessage);
-            }
-            return JsonConvert.DeserializeObject<bool>(data);
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
         public bool ResumeJob(JobId jobId)
@@ -117,8 +133,8 @@ namespace SharpRestClient
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
 
             IRestResponse response = restClient.Execute(request);
-            string data = response.Content;
-            return JsonConvert.DeserializeObject<bool>(data);
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
         public bool KillJob(JobId jobId)
@@ -128,8 +144,8 @@ namespace SharpRestClient
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
 
             IRestResponse response = restClient.Execute(request);
-            string data = response.Content;
-            return JsonConvert.DeserializeObject<bool>(data);
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
         public bool RemoveJob(JobId jobId)
@@ -139,8 +155,8 @@ namespace SharpRestClient
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
 
             IRestResponse response = restClient.Execute(request);
-            string data = response.Content;
-            return JsonConvert.DeserializeObject<bool>(data);
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
         // todo add stop/start/shutdown ...
@@ -158,7 +174,7 @@ namespace SharpRestClient
                 request.AddFile("file", ReadToEnd(xml), name, "application/xml");
             }
             var response = restClient.Execute(request);
-
+            ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<JobId>(response.Content);
         }
 
@@ -169,13 +185,8 @@ namespace SharpRestClient
             request.AddHeader("Accept", "application/json");
 
             IRestResponse response = restClient.Execute(request);
-            string data = response.Content;
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                dynamic obj = JObject.Parse(data);
-                throw new UnknownJobException((string)obj.errorMessage);
-            }
-            return JsonConvert.DeserializeObject<JobState>(data);
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<JobState>(response.Content);
         }
 
         // based on GetJobState
@@ -192,6 +203,7 @@ namespace SharpRestClient
             request.AddHeader("Accept", "application/json");
 
             IRestResponse response = restClient.Execute(request);
+            ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<JobResult>(response.Content);
         }
 
@@ -203,6 +215,7 @@ namespace SharpRestClient
             request.AddHeader("Accept", "application/json");
 
             IRestResponse response = restClient.Execute(request);
+            ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<IDictionary<string,string>>(response.Content);
         }
 
@@ -317,14 +330,9 @@ namespace SharpRestClient
             request.AddUrlSegment("value", Convert.ToString((int)priority));
 
             IRestResponse response = restClient.Execute(request);
-
-            string data = response.Content;            
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                dynamic obj = JObject.Parse(data);
-                throw new UnknownJobException((string)obj.errorMessage);
-            }
-            // todo process errors
+            Console.WriteLine("0-----> " + response.StatusCode);
+            Console.WriteLine("0-----> " + response.Content);
+            ThrowIfNotOK(response);
         }
 
         // example PushFile("GLOBALSPACE", "", "file.txt", "c:\tmp\file.txt")
@@ -352,9 +360,7 @@ namespace SharpRestClient
             }
 
             var response = restClient.Execute(request);
-            //Console.WriteLine("-------------> response " + response.Content);
-            //Console.WriteLine("---------------------status: " + response.ResponseStatus);
-            //Console.WriteLine("---------------------status: " + response.StatusCode);
+            ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
@@ -370,9 +376,7 @@ namespace SharpRestClient
             RestRequest request = new RestRequest(urlBld.ToString(), Method.GET);
             request.AddHeader("Accept", "application/octet-stream");
             byte[] data = restClient.DownloadData(request);
-
             File.WriteAllBytes(outputFile, data);
-
             return true;
         }
 
@@ -386,9 +390,7 @@ namespace SharpRestClient
             RestRequest request = new RestRequest(urlBld.ToString(), Method.DELETE);
 
             var response = restClient.Execute(request);
-            Console.WriteLine("-------------> response " + response.Content);
-            Console.WriteLine("---------------------status: " + response.ResponseStatus);
-            Console.WriteLine("---------------------status: " + response.StatusCode);
+            ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
@@ -437,6 +439,10 @@ namespace SharpRestClient
             }
         }
 
+        private static void ThrowIfNotHttpOk(IRestResponse response)
+        {
+
+        }
     }
 
     sealed class SIDAuthenticator : IAuthenticator

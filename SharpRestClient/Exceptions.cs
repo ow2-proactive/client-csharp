@@ -96,27 +96,6 @@ namespace SharpRestClient.Exceptions
         public const string SCRE = "org.ow2.proactive_grid_cloud_portal.scheduler.exception.SubmissionClosedRestException";
         public const string UJRE = "org.ow2.proactive_grid_cloud_portal.scheduler.exception.UnknownJobRestException";
 
-        public static Exception GetSchedulerException(IRestResponse response)
-        {
-            dynamic obj = JObject.Parse(response.Content);
-            string exceptionClass = (string)obj.exceptionClass;
-            string errorMessage = (string)obj.errorMessage;
-            switch (response.StatusCode)
-            {
-                case System.Net.HttpStatusCode.NotFound:
-                    return GetNotFound(exceptionClass, errorMessage);
-                case System.Net.HttpStatusCode.InternalServerError:
-                    return FromInternalError(exceptionClass, errorMessage);
-                case System.Net.HttpStatusCode.Forbidden:
-                    return FromForbidden(exceptionClass, errorMessage);
-                case System.Net.HttpStatusCode.Unauthorized:
-                    return FromUnauthorized(exceptionClass, errorMessage);
-                default:
-                    break;
-            }
-            return new SchedulerException(errorMessage);
-        }
-
         public static Exception GetNotFound(string exceptionClass, string errorMessage)
         {
             switch (exceptionClass)

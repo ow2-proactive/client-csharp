@@ -92,9 +92,12 @@ namespace Tests
             fileInfo.Delete();
             // Delete the remote file
             Assert.IsTrue(sc.DeleteFile("GLOBALSPACE", fileInfo.Name));
-            Assert.IsFalse(sc.DeleteFile("GLOBALSPACE", fileInfo.Name));
-            // Check that the file does not exits anymore
-            Assert.IsFalse(sc.PullFile("GLOBALSPACE", fileInfo.Name, fileInfo.FullName));
+            try
+            {
+                Assert.IsFalse(sc.DeleteFile("GLOBALSPACE", fileInfo.Name));
+            } catch (Exception e) {
+                Assert.IsInstanceOfType(e, typeof(ArgumentException));
+            }
         }
 
         [TestMethod]
