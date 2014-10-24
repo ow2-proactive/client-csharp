@@ -125,6 +125,9 @@ namespace SharpRestClient
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public bool ResumeJob(JobId jobId)
         {
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/resume", Method.PUT);
@@ -136,6 +139,9 @@ namespace SharpRestClient
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public bool KillJob(JobId jobId)
         {
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/kill", Method.PUT);
@@ -147,6 +153,9 @@ namespace SharpRestClient
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public bool RemoveJob(JobId jobId)
         {
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}", Method.DELETE);
@@ -158,7 +167,30 @@ namespace SharpRestClient
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
+        /// <summary>
+        /// Change the priority of the job represented by jobId. 
+        /// Only administrator can change the priority to HIGH, HIGEST, IDLE.
+        /// </summary>
+        /// <param name="jobId"></param>
+        /// <param name="priority"></param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <exception cref="JobAlreadyFinishedException">if you want to change the priority on a finished job</exception>
+        public void ChangeJobPriority(JobId jobId, JobPriority priority)
+        {
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/priority/byvalue/{value}", Method.PUT);
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.AddUrlSegment("value", Convert.ToString((int)priority));
+
+            IRestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
+        }
+
         // todo add stop/start/shutdown ...
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public JobId SubmitXml(string filePath)
         {
             RestRequest request = new RestRequest("/scheduler/submit", Method.POST);
@@ -176,6 +208,9 @@ namespace SharpRestClient
             return JsonConvert.DeserializeObject<JobId>(response.Content);
         }
 
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public JobState GetJobState(JobId jobId)
         {
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}", Method.GET);
@@ -187,12 +222,17 @@ namespace SharpRestClient
             return JsonConvert.DeserializeObject<JobState>(response.Content);
         }
 
-        // based on GetJobState
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public bool isJobAlive(JobId jobId)
         {
             return this.GetJobState(jobId).JobInfo.IsAlive();
         }
 
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public JobResult GetJobResult(JobId jobId)
         {
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/result", Method.GET);
@@ -205,6 +245,9 @@ namespace SharpRestClient
             return JsonConvert.DeserializeObject<JobResult>(response.Content);
         }
 
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public IDictionary<string, string> GetJobResultValue(JobId jobId)
         {
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/result/value", Method.GET);
@@ -309,7 +352,9 @@ namespace SharpRestClient
             }
         }
 
-
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public TaskResult GetTaskResult(JobId jobId, string taskName) 
         {
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result", Method.GET);
@@ -330,6 +375,9 @@ namespace SharpRestClient
             return tr;
         }
 
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public string GetAllTaskLogs(JobId jobId, string taskName)
         {
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/all", Method.GET);
@@ -343,6 +391,9 @@ namespace SharpRestClient
             return response.Content;
         }
 
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public string GetStdOutTaskLogs(JobId jobId, string taskName)
         {
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/out", Method.GET);
@@ -356,6 +407,9 @@ namespace SharpRestClient
             return response.Content;
         }
 
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public string GetStdErrTaskLogs(JobId jobId, string taskName)
         {
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/err", Method.GET);
@@ -369,6 +423,9 @@ namespace SharpRestClient
             return response.Content;
         }
 
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public string GetTaskResultValue(JobId jobId, string taskName)
         {
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/value", Method.GET);
@@ -382,28 +439,10 @@ namespace SharpRestClient
             return response.Content;
         }
 
-        /**
-         * Change the priority of the job represented by jobId.<br>
-         * Only administrator can change the priority to HIGH, HIGEST, IDLE.
-         *
-         * @param jobId the job on which to change the priority.
-         * @param priority The new priority to apply to the job.
-         * @throws NotConnectedException if you are not authenticated.
-         * @throws UnknownJobException if the job does not exist.
-         * @throws PermissionException if you can't access to this particular job.
-         * @throws JobAlreadyFinishedException if you want to change the priority on a finished job.
-         */
-        public void ChangeJobPriority(JobId jobId, JobPriority priority)
-        {
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/priority/byvalue/{value}", Method.PUT);
-            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
-            request.AddUrlSegment("value", Convert.ToString((int)priority));
-
-            IRestResponse response = _restClient.Execute(request);
-            ThrowIfNotOK(response);
-        }
-
         // example PushFile("GLOBALSPACE", "", "file.txt", "c:\tmp\file.txt")
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public bool PushFile(string spacename, string pathname, string filename, string file)
         {
             StringBuilder urlBld = new StringBuilder("/scheduler/dataspace/");
@@ -427,6 +466,9 @@ namespace SharpRestClient
         }
 
         // !! DANGEROUS !! - Loads all data in memory before writing to a file
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public bool PullFile(string spacename, string pathname, string outputFile)
         {
             StringBuilder urlBld = new StringBuilder("/scheduler/dataspace/");
@@ -442,6 +484,9 @@ namespace SharpRestClient
             return true;
         }
 
+        /// <summary>
+        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// </summary>
         public bool DeleteFile(string spacename, string pathname)
         {
             StringBuilder urlBld = new StringBuilder("/scheduler/dataspace/");
@@ -457,7 +502,7 @@ namespace SharpRestClient
         }
 
         //method for converting stream to byte[]
-        public byte[] ReadToEnd(System.IO.Stream stream)
+        private byte[] ReadToEnd(System.IO.Stream stream)
         {
             long originalPosition = stream.Position;
             stream.Position = 0;
@@ -502,6 +547,9 @@ namespace SharpRestClient
         }
     }
 
+    /// <summary>
+    /// Retains the sessionid required for each rest request
+    /// </summary>
     sealed class SIDAuthenticator : IAuthenticator
     {
         private readonly string sessionid;
