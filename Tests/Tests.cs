@@ -191,14 +191,24 @@ namespace Tests
         [TestMethod]
         public void WaitForJobResultValue()
         {
-            string jobname = "script_task_with_result";
-            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            string jobName = "stask_result_out_err";
+            string taskName = "simple_task";
+            string expectedResult = "hello";
+            JobId jid = sc.SubmitXml(GetWorkflowPath(jobName));
             try
             {
                 IDictionary<string,string> jr = sc.WaitForJobResultValue(jid, 30000);
                 Assert.IsNotNull(jr);
-                string value = jr["simple_task"];
-                Assert.AreEqual<string>("hello", value, "Invalid result value!");
+                string value = jr[taskName];
+                Assert.AreEqual<string>(expectedResult, value, "Invalid result value!");
+
+                TaskResult taskResult = sc.GetTaskResult(jid, taskName);
+                Assert.IsNotNull(taskResult);
+                Assert.IsTrue(taskResult.TaskLogs.StdOutLogs.Contains("outout"));
+                Assert.IsTrue(taskResult.TaskLogs.StdErrLogs.Contains("errerr"));
+
+                string taskResultValue = sc.GetTaskResultValue(jid, taskName);
+                Assert.AreEqual<string>(expectedResult, taskResultValue, "Invalid task result value!");
             }
             finally
             {

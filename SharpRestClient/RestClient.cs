@@ -15,24 +15,26 @@ namespace SharpRestClient
 {
     public class SchedulerClient
     {
-        private const int REQUEST_TIMEOUT_MS = 600000;
+        private const int DEFAULT_REQUEST_TIMEOUT_MS = 600000;
         private const int RETRY_INTERVAL_MS = 1000;
 
-        private readonly RestClient restClient;
-        private readonly string username;
-        private readonly string password; // to do later use SecureString see http://www.experts-exchange.com/Programming/Languages/.NET/Q_22829139.html        
+        private readonly RestClient _restClient;
+        private readonly string _username;
+        private readonly string _password; // to do later use SecureString see http://www.experts-exchange.com/Programming/Languages/.NET/Q_22829139.html
 
-        private SchedulerClient(RestClient newRestClient, string newUsername, string newPassword)
+        private SchedulerClient(RestClient restClient, string username, string password)
         {
-            this.restClient = newRestClient;
-            this.username = newUsername;
-            this.password = newPassword;
+            this._restClient = restClient;
+            this._username = username;
+            this._password = password;
         }
-
         public static SchedulerClient Connect(string restUrl, string username, string password)
-        {
+        { return Connect(restUrl, username, password, DEFAULT_REQUEST_TIMEOUT_MS); }
 
+        public static SchedulerClient Connect(string restUrl, string username, string password, int requestTimeoutInMs)
+        {
             RestClient restClient = new RestClient(restUrl);
+            restClient.Timeout = requestTimeoutInMs;
 
             RestRequest request = new RestRequest("/scheduler/login", Method.POST);
             request.AddParameter("username", username, ParameterType.GetOrPost);
@@ -52,9 +54,6 @@ namespace SharpRestClient
 
             // if not exception and the response contect size is correct then it's ok
             string sessionid = response.Content;
-            Console.WriteLine("---------------------status: " + response.ResponseStatus);
-            Console.WriteLine("---------------------status: " + response.StatusCode);
-            Console.WriteLine("---------------------received: " + sessionid);
             restClient.Authenticator = new SIDAuthenticator(sessionid);
 
             return new SchedulerClient(restClient, username, password);
@@ -87,7 +86,7 @@ namespace SharpRestClient
             RestRequest request = new RestRequest("/scheduler/isconnected", Method.GET);
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = restClient.Execute(request);
+            IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
@@ -97,7 +96,7 @@ namespace SharpRestClient
             RestRequest request = new RestRequest("/scheduler/version", Method.GET);
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = restClient.Execute(request);
+            IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<Version>(response.Content);
         }
@@ -107,7 +106,7 @@ namespace SharpRestClient
             RestRequest request = new RestRequest("/scheduler/status", Method.GET);
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = restClient.Execute(request);
+            IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<SchedulerStatus>(response.Content);
         }
@@ -121,7 +120,7 @@ namespace SharpRestClient
             request.AddHeader("Accept", "application/json");
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
 
-            IRestResponse response = restClient.Execute(request);
+            IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
@@ -132,7 +131,7 @@ namespace SharpRestClient
             request.AddHeader("Accept", "application/json");
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
 
-            IRestResponse response = restClient.Execute(request);
+            IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
@@ -143,7 +142,7 @@ namespace SharpRestClient
             request.AddHeader("Accept", "application/json");
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
 
-            IRestResponse response = restClient.Execute(request);
+            IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
@@ -154,7 +153,7 @@ namespace SharpRestClient
             request.AddHeader("Accept", "application/json");
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
 
-            IRestResponse response = restClient.Execute(request);
+            IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
@@ -165,7 +164,6 @@ namespace SharpRestClient
             RestRequest request = new RestRequest("/scheduler/submit", Method.POST);
             request.AddHeader("Content-Type", "multipart/form-data");
             request.AddHeader("Accept", "application/json");
-            request.Timeout = 600000;
 
             string name = Path.GetFileName(filePath);
             
@@ -173,7 +171,7 @@ namespace SharpRestClient
             {
                 request.AddFile("file", ReadToEnd(xml), name, "application/xml");
             }
-            var response = restClient.Execute(request);
+            var response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<JobId>(response.Content);
         }
@@ -184,7 +182,7 @@ namespace SharpRestClient
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = restClient.Execute(request);
+            IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<JobState>(response.Content);
         }
@@ -202,7 +200,7 @@ namespace SharpRestClient
             request.AddHeader("Accept-Encoding", "gzip");
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = restClient.Execute(request);
+            IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<JobResult>(response.Content);
         }
@@ -214,7 +212,7 @@ namespace SharpRestClient
             request.AddHeader("Accept-Encoding", "gzip");
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = restClient.Execute(request);
+            IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<IDictionary<string,string>>(response.Content);
         }
@@ -312,6 +310,78 @@ namespace SharpRestClient
         }
 
 
+        public TaskResult GetTaskResult(JobId jobId, string taskName) 
+        {
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result", Method.GET);
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.AddUrlSegment("taskname", taskName);
+            request.AddHeader("Accept-Encoding", "gzip");
+            request.AddHeader("Accept", "application/json");
+
+            IRestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
+            TaskResult tr = JsonConvert.DeserializeObject<TaskResult>(response.Content);
+
+            tr.TaskLogs = new TaskLogs();
+            tr.TaskLogs.AllLogs = GetAllTaskLogs(jobId, taskName);
+            tr.TaskLogs.StdOutLogs = GetStdOutTaskLogs(jobId, taskName);
+            tr.TaskLogs.StdErrLogs = GetStdErrTaskLogs(jobId, taskName);
+
+            return tr;
+        }
+
+        public string GetAllTaskLogs(JobId jobId, string taskName)
+        {
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/all", Method.GET);
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.AddUrlSegment("taskname", taskName);
+            request.AddHeader("Accept-Encoding", "gzip");
+            request.AddHeader("Accept", "application/json");
+
+            IRestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
+            return response.Content;
+        }
+
+        public string GetStdOutTaskLogs(JobId jobId, string taskName)
+        {
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/out", Method.GET);
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.AddUrlSegment("taskname", taskName);
+            request.AddHeader("Accept-Encoding", "gzip");
+            request.AddHeader("Accept", "application/json");
+
+            IRestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
+            return response.Content;
+        }
+
+        public string GetStdErrTaskLogs(JobId jobId, string taskName)
+        {
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/err", Method.GET);
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.AddUrlSegment("taskname", taskName);
+            request.AddHeader("Accept-Encoding", "gzip");
+            request.AddHeader("Accept", "application/json");
+
+            IRestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
+            return response.Content;
+        }
+
+        public string GetTaskResultValue(JobId jobId, string taskName)
+        {
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/value", Method.GET);
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.AddUrlSegment("taskname", taskName);
+            request.AddHeader("Accept-Encoding", "gzip");
+            request.AddHeader("Accept", "*/*");
+
+            IRestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
+            return response.Content;
+        }
+
         /**
          * Change the priority of the job represented by jobId.<br>
          * Only administrator can change the priority to HIGH, HIGEST, IDLE.
@@ -329,19 +399,12 @@ namespace SharpRestClient
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("value", Convert.ToString((int)priority));
 
-            IRestResponse response = restClient.Execute(request);
-            Console.WriteLine("0-----> " + response.StatusCode);
-            Console.WriteLine("0-----> " + response.Content);
+            IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
         }
 
         // example PushFile("GLOBALSPACE", "", "file.txt", "c:\tmp\file.txt")
         public bool PushFile(string spacename, string pathname, string filename, string file)
-        {
-            return this.PushFile(spacename, pathname, filename, file, SchedulerClient.REQUEST_TIMEOUT_MS);
-        }
-
-        public bool PushFile(string spacename, string pathname, string filename, string file, int timeout)
         {
             StringBuilder urlBld = new StringBuilder("/scheduler/dataspace/");
             // spacename: GLOBALSPACE or USERSPACE
@@ -352,14 +415,13 @@ namespace SharpRestClient
             RestRequest request = new RestRequest(urlBld.ToString(), Method.POST);
             request.AddHeader("Content-Type", "multipart/form-data");
             request.AddHeader("Accept", "application/json");
-            request.Timeout = timeout;
             request.AddParameter("fileName", filename, ParameterType.GetOrPost);
             using (FileStream xml = new FileStream(file, FileMode.Open))
             {
                 request.AddFile("fileContent", ReadToEnd(xml), filename, "application/octet-stream");
             }
 
-            var response = restClient.Execute(request);
+            var response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
@@ -375,7 +437,7 @@ namespace SharpRestClient
 
             RestRequest request = new RestRequest(urlBld.ToString(), Method.GET);
             request.AddHeader("Accept", "application/octet-stream");
-            byte[] data = restClient.DownloadData(request);
+            byte[] data = _restClient.DownloadData(request);
             File.WriteAllBytes(outputFile, data);
             return true;
         }
@@ -389,7 +451,7 @@ namespace SharpRestClient
             urlBld.Append(pathname);
             RestRequest request = new RestRequest(urlBld.ToString(), Method.DELETE);
 
-            var response = restClient.Execute(request);
+            var response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
@@ -437,11 +499,6 @@ namespace SharpRestClient
             {
                 stream.Position = originalPosition;
             }
-        }
-
-        private static void ThrowIfNotHttpOk(IRestResponse response)
-        {
-
         }
     }
 

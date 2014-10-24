@@ -313,12 +313,20 @@ namespace SharpRestClient
         public IDictionary<string, TaskState> Tasks { get; set; }
     }
 
+    public sealed class TaskLogs
+    {
+        public string StdOutLogs{ get; set; }
+        public string StdErrLogs { get; set; }
+        public string AllLogs { get; set; }
+    }
+
     public sealed class TaskResult
     {
         [JsonProperty("taskId")]
         public TaskId TaskId { get; set; }
         [JsonProperty("serializedValue")]
         public byte[] SerializedValue { get; set; }
+        public TaskLogs TaskLogs { get; set; }
     }
 
     public sealed class JobResult
