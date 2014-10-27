@@ -63,6 +63,7 @@
   <ItemGroup>
     <Content Include="workflow\stask_result_out_err.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <SubType>Designer</SubType>
     </Content>
     <Content Include="workflow\one_minute_script_task.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
