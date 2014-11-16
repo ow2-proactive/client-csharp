@@ -485,6 +485,34 @@ namespace SharpRestClient
         }
 
         /// <summary>
+        /// Pushes files of a given directory to the dataspace.
+        /// Internally calls PushFile per file to be pushed.
+        /// Example PushDirectory("GLOBALSPACE", "", "c:\tmp\", "*")
+        /// </summary>
+        /// <param name="spacename">either GLOBALSPACE or USERSPACE</param>
+        /// <param name="pathname">pathname to be used in the server, for instance /dir1/</param>
+        /// <param name="localdir">path of the local directory whose content will be transferred</param>
+        /// <param name="wildcard">wildcard to select some of the local files to be transferred</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="SchedulerException">if an error occurs on the server side</exception>
+        /// <exception cref="ArgumentException">if arguments are not valid</exception>
+        public bool PushDirectory(string spacename, string pathname, 
+            string localdir, string wildcard)
+        {
+            
+            string[] filenames = Directory.GetFiles(
+                localdir, wildcard, SearchOption.AllDirectories);
+
+            bool b = true;
+            foreach (string f in filenames)
+            {
+                b = b && PushFile(spacename, pathname, GetRelativePath(f, localdir), f);
+            }
+ 
+            return b;
+        }
+
+        /// <summary>
         /// throws NotConnectedException, UnknownJobException, PermissionException
         /// </summary>
         public bool DeleteFile(string spacename, string pathname)
@@ -545,6 +573,26 @@ namespace SharpRestClient
                 stream.Position = originalPosition;
             }
         }
+
+        // Method to get a relative path given a reference
+        // directory
+        private static string GetRelativePath(string filespec, string dir)
+        {
+            Uri pathUri = new Uri(filespec);
+            // Folders must end in a slash
+            if (!dir.EndsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                dir += Path.DirectorySeparatorChar;
+            }
+            Uri dirUri = new Uri(dir);
+            return Uri.UnescapeDataString(
+                dirUri
+                    .MakeRelativeUri(pathUri)
+                    .ToString()
+                    .Replace('/', Path.DirectorySeparatorChar)
+            );
+        }
+
     }
 
     /// <summary>

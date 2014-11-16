@@ -101,6 +101,85 @@ namespace Tests
         }
 
         [TestMethod]
+        public void PushDirectoryPullDelete()
+        {
+            // This test will create a set of directories and files:
+            //   <testtmp>/
+            //   <testtmp>/<uuid>/
+            //   <testtmp>/<uuid>/file
+            // and upload <testtmp>. It means the whole directory
+            // <uuid> will be uploaded.
+ 
+            // Create test temp dir
+            string tempDirPath = GetTemporaryDirectory();
+            
+            // Create dir to be pushed
+            string targetDirName = Guid.NewGuid().ToString();
+            string targetDirPath = Path.Combine(tempDirPath, targetDirName);
+            Directory.CreateDirectory(targetDirPath);
+
+            // Create a file in that dir
+            createFile(targetDirPath, "file");            
+
+            string remoteBaseDir = Guid.NewGuid().ToString();
+            try
+            {
+                // Upload the temp folder
+                Assert.IsTrue(
+                    sc.PushDirectory("GLOBALSPACE", remoteBaseDir, tempDirPath, "*"));
+            }
+            finally
+            {
+                // Delete the target dir
+                Directory.Delete(targetDirPath, true);
+                Assert.IsFalse(Directory.Exists(targetDirPath));
+            }
+
+            // Pull the just uploaded files
+            string file = Path.GetTempFileName();
+            Assert.IsTrue(sc.PullFile("GLOBALSPACE", 
+                remoteBaseDir + "/" + targetDirName + "/file", file));
+            
+            // Check the downloaded file now exists
+            Assert.IsTrue(File.Exists(file));
+
+            // Delete the downloaded file
+            File.Delete(file); 
+
+            // Delete the remote dir
+            Assert.IsTrue(sc.DeleteFile("GLOBALSPACE", remoteBaseDir));
+
+            // Delete the created local dir
+            Directory.Delete(tempDirPath, true);
+            Assert.IsFalse(Directory.Exists(tempDirPath));
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void PushDirectoryInvalid()
+        {
+            sc.PushDirectory("GLOBALSPACE", "..", "", "*");
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(SchedulerException))]
+        public void PushDirectoryToInvalidPath()
+        {
+            // Create test temp dir
+            string tempDirPath = GetTemporaryDirectory();
+            createFile(tempDirPath, "file");
+
+            try
+            {
+                sc.PushDirectory("GLOBALSPACE", "/../../", tempDirPath, "*");
+            }
+            finally 
+            {
+                Directory.Delete(tempDirPath, true);
+            }
+        }
+
+        [TestMethod]
         public void SubmitXml()
         {
             string jobname = "script_task_with_result";
@@ -272,5 +351,20 @@ namespace Tests
         {
             return Path.Combine(Environment.CurrentDirectory, @"workflow\" + name + ".xml");
         }
+
+        private static string GetTemporaryDirectory()
+        {
+            string tempDirectory = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(tempDirectory);
+            return tempDirectory;
+        }
+
+        private static string createFile(string targetDir, string fileName) {
+            string filePath = Path.Combine(targetDir, fileName);
+            using (File.Create(filePath)) { }
+            return filePath;
+        }
+        
+
     }
 }
