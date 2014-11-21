@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using RestSharp;
+using RestSharp.Contrib;
 using System;
 using System.IO;
 using System.Linq;
@@ -193,17 +194,41 @@ namespace SharpRestClient
         /// </summary>
         public JobId SubmitXml(string filePath)
         {
-            RestRequest request = new RestRequest("/scheduler/submit", Method.POST);
+            return _SubmitXml("/scheduler/submit", filePath);
+        }
+
+        public JobId SubmitXml(string filePath, Dictionary<string,string> variables) {
+            String url = null;
+            if (variables == null || variables.Count == 0)
+            {
+                url = "/scheduler/submit";
+            }
+            else
+            {
+                StringBuilder buf = new StringBuilder("/scheduler/submit");
+                foreach (KeyValuePair<string, string> keyValue in variables)
+                {
+                    buf.Append(';').Append(HttpUtility.UrlEncode(keyValue.Key)).Append("=").Append(HttpUtility.UrlEncode(keyValue.Value));
+                }
+                url = buf.ToString();
+            }
+            return _SubmitXml(url, filePath);
+        }
+
+        private JobId _SubmitXml(string url, string filePath) 
+        {
+            RestRequest request = new RestRequest(url, Method.POST);
             request.AddHeader("Content-Type", "multipart/form-data");
             request.AddHeader("Accept", "application/json");
 
             string name = Path.GetFileName(filePath);
-            
             using (var xml = new FileStream(filePath, FileMode.Open))
             {
                 request.AddFile("file", ReadToEnd(xml), name, "application/xml");
             }
+
             var response = _restClient.Execute(request);
+
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<JobId>(response.Content);
         }
