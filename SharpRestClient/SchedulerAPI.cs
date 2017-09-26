@@ -5,6 +5,9 @@ using System.Runtime.Serialization;
 namespace SharpRestClient
 {
 
+    /// <summary>
+    /// Status of the scheduler
+    /// </summary>
     [JsonConverter(typeof(StringEnumConverter))]
     public enum SchedulerStatus
     {
@@ -50,6 +53,9 @@ namespace SharpRestClient
         DB_DOWN
     }
 
+    /// <summary>
+    /// Priority of a job
+    /// </summary>
     [JsonConverter(typeof(StringEnumConverter))]
     public enum JobPriority
     {
@@ -73,6 +79,9 @@ namespace SharpRestClient
         HIGHEST
     }
 
+    /// <summary>
+    /// Status of a job
+    /// </summary>
     [JsonConverter(typeof(StringEnumConverter))]
     public enum JobStatus
     {
@@ -118,9 +127,18 @@ namespace SharpRestClient
         /// such as output, time, etc...
         /// </summary>
         [EnumMember(Value = "Killed")]
-        KILLED
+        KILLED,
+        /// <summary>
+        /// The job is currently in-error state
+        /// </summary>
+        [EnumMember(Value = "In_Error")]
+        IN_ERROR
+
     }
 
+    /// <summary>
+    /// Status of a task
+    /// </summary>
     [JsonConverter(typeof(StringEnumConverter))]
     public enum TaskStatus
     {
@@ -187,132 +205,350 @@ namespace SharpRestClient
         /// The task was not executed: it was the non-selected branch of an IF/ELSE control flow action.
         /// </summary>
         [EnumMember]
-        SKIPPED
+        SKIPPED,
+        /// <summary>
+        /// The task is currently in-error state, waiting for a user action.
+        /// </summary>
+        [EnumMember]
+        IN_ERROR
     }
 
+    /// <summary>
+    /// version of the scheduler and rest api
+    /// </summary>
     public sealed class Version
     {
+        /// <summary>
+        /// version of the scheduler
+        /// </summary>
         [JsonProperty("scheduler")]
         public string Scheduler { get; set; }
+        /// <summary>
+        /// version of the rest api
+        /// </summary>
         [JsonProperty("rest")]
         public string Rest { get; set; }
     }
 
+    /// <summary>
+    /// A task's id
+    /// </summary>
     public sealed class TaskId
     {
+        /// <summary>
+        /// the id itself
+        /// </summary>
         [JsonProperty("id")]
         public long Id { get; set; }
+        /// <summary>
+        /// textual name
+        /// </summary>
         [JsonProperty("readableName")]
         public string ReadableName { get; set; }
+        /// <summary>
+        /// always false
+        /// </summary>
         public bool ShouldSerializeReadableName()
         {
             return false;
         }
     }
 
+    /// <summary>
+    /// A job's id
+    /// </summary>
     public sealed class JobId
     {
+        /// <summary>
+        /// the id itself
+        /// </summary>
         [JsonProperty("id")]
         public long Id { get; set; }
+        /// <summary>
+        /// textual name
+        /// </summary>
         [JsonProperty("readableName")]
         public string ReadableName { get; set; }
+        /// <summary>
+        /// always false
+        /// </summary>
         public bool ShouldSerializeReadableName()
         {
             return false;
         }
     }
 
+    /// <summary>
+    /// Summary information of this task 
+    /// </summary>
     public sealed class TaskInfo
     {
+        /// <summary>
+        /// id of the Job containing this Task 
+        /// </summary>
         [JsonProperty("jobId")]
         public JobId JobId { get; set; }
+        /// <summary>
+        /// id of this Task 
+        /// </summary>
         [JsonProperty("taskId")]
         public TaskId TaskId { get; set; }
+        /// <summary>
+        /// system time when this Task was started 
+        /// </summary>
         [JsonProperty("startTime")]
         public long StartTime { get; set; }
+        /// <summary>
+        /// system time when this Task was finished 
+        /// </summary>
         [JsonProperty("finishedTime")]
         public long FinishedTime { get; set; }
+        /// <summary>
+        /// system time at which the Task has been terminated for the last time (last attempt)
+        /// </summary>
+        [JsonProperty("inErrorTime")]
+        public long InErrorTime { get; set; }
+        /// <summary>
+        /// system time when this Task was scheduled (not started yet) 
+        /// </summary>
+        [JsonProperty("scheduledTime")]       
+        public long ScheduledTime { get; set; }
+        /// <summary>
+        /// execution duration of the Task. It is the real execution time on the worker. 
+        /// </summary>
         [JsonProperty("executionDuration")]
         public string ExecutionDuration { get; set; }
+        /// <summary>
+        /// status of the Task. 
+        /// </summary>
         [JsonProperty("taskStatus")]
         public TaskStatus TaskStatus { get; set; }
+        /// <summary>
+        /// Get the last execution HostName of the task. 
+        /// </summary>
         [JsonProperty("executionHostName")]
         public string ExecutionHostName { get; set; }
+        /// <summary>
+        /// Get the number of execution left for this task (prior to failure). 
+        /// </summary>
         [JsonProperty("numberOfExecutionLeft")]
         public int NumberOfExecutionLeft { get; set; }
+        /// <summary>
+        /// Get the number of execution on failure left for this task. 
+        /// </summary>
         [JsonProperty("numberOfExecutionOnFailureLeft")]
-        public int NumberOfExecutionOnFailureLeft { get; set; }        
+        public int NumberOfExecutionOnFailureLeft { get; set; }
+        /// <summary>
+        /// Return the task progress (the progress must be explicitely handled by the Task). 
+        /// </summary>
+        [JsonProperty("progress")]
+        public int Progress { get; set; }
     }
 
+    /// <summary>
+    /// the Task current state  
+    /// </summary>
     public sealed class TaskState
     {
+        /// <summary>
+        /// the Task readable name  
+        /// </summary>
         [JsonProperty("name")]
         public string Name { get; set; }
+        /// <summary>
+        /// the Task description  
+        /// </summary>
         [JsonProperty("description")]
         public string Description { get; set; }
+        /// <summary>
+        /// a Tag associated with this task (if any)  
+        /// </summary>
+        [JsonProperty("tag")]
+        public string Tag { get; set; }
+        /// <summary>
+        /// the iteration index of this Task (if it's part of a workflow loop)  
+        /// </summary>
         [JsonProperty("iterationIndex")]
         public int IterationIndex { get; set; }
+        /// <summary>
+        /// the replication index of this Task (if it's part of a workflow replication)  
+        /// </summary>
         [JsonProperty("replicationIndex")]
         public int ReplicationIndex { get; set; }
-        [JsonProperty("maxNumberOfExecution")]
+        /// <summary>
+        /// the maximum number of executions for this Task 
+        /// </summary>
+        [JsonProperty("maxNumberOfExecution")]        
         public int MaxNumberOfExecution { get; set; }
-        [JsonProperty("maxNumberOfExecutionOnFailure")]
+        /// <summary>
+        /// the maximum number of faulty executions for this Task 
+        /// </summary>
+        [JsonProperty("maxNumberOfExecutionOnFailure")]        
         public int MaxNumberOfExecutionOnFailure { get; set; }
+        /// <summary>
+        /// the generic information dictionary associated with this Task 
+        /// </summary>
+        [JsonProperty("genericInformation")]        
+        public IDictionary<string, string> GenericInformation { get; set; }
+        /// <summary>
+        /// the associated task info object 
+        /// </summary>
         [JsonProperty("taskInfo")]
         public TaskInfo TaskInfo { get; set; }
         //[JsonProperty("parallelEnvironment")]
         //public string ParallelEnvironment { get; set; }
     }
 
+    /// <summary>
+    /// Summary information of this job
+    /// </summary>
     public sealed class JobInfo
     {
+        /// <summary>
+        /// id of this Job 
+        /// </summary>
         [JsonProperty("id")]
         public JobId JobId { get; set; }
+        /// <summary>
+        /// This job's starting time (one task at least started) 
+        /// </summary>
         [JsonProperty("startTime")]
         public long StartTime { get; set; }
+        /// <summary>
+        /// Returns the time at which a Job was seen as in-error for the last time.
+        /// </summary>
+        [JsonProperty("inErrorTime")]
+        public long InErrorTime { get; set; }
+        /// <summary>
+        /// This job's finished time
+        /// </summary>
         [JsonProperty("finishedTime")]
         public long FinishedTime { get; set; }
+        /// <summary>
+        /// This job's submission time
+        /// </summary>
         [JsonProperty("submittedTime")]
         public long SubmittedTime { get; set; }
+        /// <summary>
+        /// Time when this job was removed
+        /// </summary>
         [JsonProperty("removedTime")]
         public long RemovedTime { get; set; }
+        /// <summary>
+        /// This job's status
+        /// </summary>
         [JsonProperty("status")]
-        public JobStatus Status { get; set; }
+        public JobStatus Status { get; set; } 
+        /// <summary>
+        /// Total number of tasks for this job (may vary in case of iterations or replications)
+        /// </summary>
         [JsonProperty("totalNumberOfTasks")]
         public int TotalNumberOfTasks { get; set; }
+        /// <summary>
+        /// Total number of pending tasks for this job
+        /// </summary>
         [JsonProperty("numberOfPendingTasks")]
         public int NumberOfPendingTasks { get; set; }
-        [JsonProperty("numberOfRunningTasks")]
+        /// <summary>
+        /// Total number of running tasks for this job
+        /// </summary>
+        [JsonProperty("numberOfRunningTasks")]       
         public int NumberOfRunningTasks { get; set; }
-        [JsonProperty("numberOfFinishedTasks")]
+        /// <summary>
+        /// Total number of finished tasks for this job
+        /// </summary>
+        [JsonProperty("numberOfFinishedTasks")]       
         public int NumberOfFinishedTasks { get; set; }
+        /// <summary>
+        /// Total number of failed tasks for this job. A task is failed if the execution node failed multiple times.
+        /// </summary>
+        [JsonProperty("numberOfFailedTasks")]        
+        public int NumberOfFailedTasks { get; set; }
+        /// <summary>
+        /// Total number of faulty tasks for this job. A task is faulty in case of a user-code error or internal error.
+        /// </summary>
+        [JsonProperty("numberOfFaultyTasks")]
+        public int NumberOfFaultyTasks { get; set; }
+        /// <summary>
+        /// Total number of tasks in in-error state.
+        /// </summary>
+        [JsonProperty("numberOfInErrorTasks")]
+        public int NumberOfInErrorTasks { get; set; }
+        /// <summary>
+        /// Generic information attached to this job.
+        /// </summary>
+        [JsonProperty("genericInformation")]
+        public IDictionary<string, string> GenericInformation { get; set; }
+        /// <summary>
+        /// Variables attached to this job.
+        /// </summary>
+        [JsonProperty("variables")]
+        public IDictionary<string, string> Variables { get; set; }
+        /// <summary>
+        /// Priority attached to this job.
+        /// </summary>
         [JsonProperty("priority")]
         public JobPriority Priority { get; set; }
+        /// <summary>
+        /// Owner of this job.
+        /// </summary>
         [JsonProperty("jobOwner")]
         public string Owner { get; set; }
 
+        /// <summary>
+        /// True if this job is not finished yet.
+        /// </summary>
         public bool IsAlive()
         {            
-            return this.Status == JobStatus.PENDING || this.Status == JobStatus.RUNNING || this.Status == JobStatus.STALLED || this.Status == JobStatus.PAUSED;
+            return this.Status == JobStatus.PENDING || this.Status == JobStatus.RUNNING || this.Status == JobStatus.STALLED || this.Status == JobStatus.PAUSED || this.Status == JobStatus.IN_ERROR;
         }
     }
 
+    /// <summary>
+    /// current state of this job and all this job's tasks
+    /// </summary>
     public sealed class JobState
     {
+        /// <summary>
+        /// The name of this job.
+        /// </summary>
         [JsonProperty("name")]
         public string Name { get; set; }
+        /// <summary>
+        /// The priority of this job.
+        /// </summary>
         [JsonProperty("priority")]
         public JobPriority Priority { get; set; }
+        /// <summary>
+        /// The owner of this job.
+        /// </summary>
         [JsonProperty("owner")]
         public string Owner { get; set; }
+        /// <summary>
+        /// The job information.
+        /// </summary>
         [JsonProperty("jobInfo")]
         public JobInfo JobInfo { get; set; }
+        /// <summary>
+        /// The project associated with this job.
+        /// </summary>
         [JsonProperty("projectName")]
         public string ProjectName { get; set; }
+        /// <summary>
+        /// All tasks contained in this job (the dictionary is indexed by task ids, rather than task names).
+        /// </summary>
         [JsonProperty("tasks")]
         public IDictionary<string, TaskState> Tasks { get; set; }
+        /// <summary>
+        /// The generic information associated with this job.
+        /// </summary>
+        [JsonProperty("genericInformation")]
+        public IDictionary<string, string> GenericInformation { get; set; }
     }
 
+    /// <summary>
+    /// An object containing a task logs
+    /// </summary>
     public sealed class TaskLogs
     {
         public string StdOutLogs{ get; set; }
@@ -320,21 +556,93 @@ namespace SharpRestClient
         public string AllLogs { get; set; }
     }
 
+    /// <summary>
+    /// An object containing a task result
+    /// </summary>
     public sealed class TaskResult
     {
+        /// <summary>
+        /// The task id
+        /// </summary>
         [JsonProperty("taskId")]
         public TaskId TaskId { get; set; }
+        /// <summary>
+        /// The task result in composed Java Serialization / Base64 format. Unless the result is a raw byte array, this cannot be used in C# due to java serialization.
+        /// </summary>
         [JsonProperty("serializedValue")]
-        public byte[] SerializedValue { get; set; }
+        public string SerializedValue { get; set; }
+        /// <summary>
+        /// The task result in textual format.
+        /// </summary>
+        [JsonProperty("value")]
+        public string Value { get; set; }
+        /// <summary>
+        /// The task exception in serialized format. This cannot be used in C# as the serialization mechanism is java-based.
+        /// </summary>
+        [JsonProperty("serializedException")]
+        public string SerializedException { get; set; }
+        /// <summary>
+        /// The task exception message in textual format.
+        /// </summary>
+        [JsonProperty("exceptionMessage")]
+        public string ExceptionMessage { get; set; }
+        /// <summary>
+        /// A dictionary containing the task's metadata, if metadata were set inside the task.
+        /// </summary>
+        [JsonProperty("metadata")]
+        public IDictionary<string, string> MetaData { get; set; }
+        /// <summary>
+        /// A dictionary containing the 's propagated variables in textual format.
+        /// </summary>
+        [JsonProperty("propagatedVariables")]
+        public IDictionary<string, string> PropagatedVariables { get; set; }
+        /// <summary>
+        /// A dictionary containing the 's propagated variables in serialized format. This cannot be used in C# as the serialization mechanism is java-based.
+        /// </summary>
+        [JsonProperty("serializedPropagatedVariables")]
+        public IDictionary<string, string> SerializedPropagatedVariables { get; set; }
+        /// <summary>
+        /// This task log output
+        /// </summary>
+        [JsonProperty("output")]
         public TaskLogs TaskLogs { get; set; }
+        /// <summary>
+        /// True if this task result is a raw byte array
+        /// </summary>
+        [JsonProperty("raw")]
+        public bool Raw { get; set; }
     }
 
+    /// <summary>
+    /// An object containing a job result
+    /// </summary>
     public sealed class JobResult
     {
+        /// <summary>
+        /// The job id
+        /// </summary>
         [JsonProperty("id")]
         public JobId JobId { get; set; }
+        /// <summary>
+        /// The job information
+        /// </summary>
+        [JsonProperty("jobInfo")]
+        public JobInfo JobInfo { get; set; }
+        /// <summary>
+        /// A dictionary containing all task results (dictionary is indexed by task names).
+        /// </summary>
         [JsonProperty("allResults")]
         public IDictionary<string, TaskResult> Tasks { get; set; }
+        /// <summary>
+        /// A dictionary containing all task results with the property "preciousResult" (dictionary is indexed by task names).
+        /// </summary>
+        [JsonProperty("preciousResults")]
+        public IDictionary<string, TaskResult> PreciousTasks { get; set; }
+        /// <summary>
+        /// A dictionary containing all failed task results (dictionary is indexed by task names).
+        /// </summary>
+        [JsonProperty("exceptionResults")]
+        public IDictionary<string, TaskResult> ExceptionTasks { get; set; }
         public override string ToString()
         {
             return string.Format("Job#{0} have {1} tasks results", JobId.Id, Tasks.Count);

@@ -9,11 +9,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using SharpRestClient.Exceptions;
 using Newtonsoft.Json.Linq;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace SharpRestClient
 {
+
+    /// <summary>
+    /// Entry-Point of the Scheduler API
+    /// </summary>
     public class SchedulerClient
     {
         private const int DEFAULT_REQUEST_TIMEOUT_MS = 600000;
@@ -22,6 +25,7 @@ namespace SharpRestClient
         private readonly RestClient _restClient;
         private readonly string _username;
         private readonly string _password; // to do later use SecureString see http://www.experts-exchange.com/Programming/Languages/.NET/Q_22829139.html
+        private readonly byte[] _credentialBytes;      
 
         private SchedulerClient(RestClient restClient, string username, string password)
         {
@@ -29,17 +33,68 @@ namespace SharpRestClient
             this._username = username;
             this._password = password;
         }
-        public static SchedulerClient Connect(string restUrl, string username, string password)
-        { return Connect(restUrl, username, password, DEFAULT_REQUEST_TIMEOUT_MS); }
 
-        public static SchedulerClient Connect(string restUrl, string username, string password, int requestTimeoutInMs)
+        private SchedulerClient(RestClient restClient, byte[] credentialBytes)
         {
+            this._restClient = restClient;
+            this._credentialBytes = credentialBytes;
+        }
+
+        /// <summary>
+        /// Connects to a running ProActive Scheduler using login and password
+        /// </summary>
+        /// <param name="restUrl">rest url of the scheduler</param>
+        /// <param name="username">login name of the user</param>
+        /// <param name="password">password of the user</param>
+        public static SchedulerClient Connect(string restUrl, string username, string password)
+        { return Connect(restUrl, username, password, null, DEFAULT_REQUEST_TIMEOUT_MS); }
+
+        /// <summary>
+        /// Connects to a running ProActive Scheduler using a credential file
+        /// </summary>
+        /// <param name="restUrl">rest url of the scheduler</param>
+        /// <param name="credentialFile">path to a credential file on the local file system</param>
+        public static SchedulerClient Connect(string restUrl, string credentialFile)
+        { return Connect(restUrl, null, null, credentialFile, DEFAULT_REQUEST_TIMEOUT_MS); }
+
+        /// <summary>
+        /// Connects to a running ProActive Scheduler
+        /// </summary>
+        /// <param name="restUrl">rest url of the scheduler</param>
+        /// <param name="username">login name of the user</param>
+        /// <param name="password">password of the user</param>
+        /// <param name="credentialFile">path to a credential file (replace username and password)</param>
+        /// <param name="requestTimeoutInMs">timeout in milliseconds for the connection</param>
+        public static SchedulerClient Connect(string restUrl, string username, string password, string credentialFile, int requestTimeoutInMs)
+        {
+            byte[] credentialBytes = null;
             RestClient restClient = new RestClient(restUrl);
             restClient.Timeout = requestTimeoutInMs;
 
             RestRequest request = new RestRequest("/scheduler/login", Method.POST);
-            request.AddParameter("username", username, ParameterType.GetOrPost);
-            request.AddParameter("password", password, ParameterType.GetOrPost);
+            request.AddHeader("Content-Type", "multipart/form-data");
+            if (username != null)
+            {
+                request.AddParameter("username", username, ParameterType.GetOrPost);
+            }
+            if (password != null)
+            {
+                request.AddParameter("password", password, ParameterType.GetOrPost);
+            }
+            if (credentialFile != null)
+            {
+                if (File.Exists(credentialFile))
+                {
+                    using (FileStream cred = new FileStream(credentialFile, FileMode.Open))
+                    {
+                        credentialBytes = ReadToEnd(cred);
+                        request.AddFile("credential", credentialBytes, credentialFile, "application/octet-stream");
+                    }
+                } else
+                {
+                    throw new IOException("Credential File " + credentialFile + " does not exit.");
+                }
+            }
 
             IRestResponse response = restClient.Execute(request);
 
@@ -50,15 +105,23 @@ namespace SharpRestClient
 
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                throw new InvalidOperationException("Unable to connect to " + restUrl + " descrition: " + response.StatusDescription);
+                throw new InvalidOperationException("Unable to connect to " + restUrl + " description: " + response.Content);
             }
 
-            // if not exception and the response contect size is correct then it's ok
+            // if not exception and the response content size is correct then it's ok
             string sessionid = response.Content;
             restClient.Authenticator = new SIDAuthenticator(sessionid);
 
-            return new SchedulerClient(restClient, username, password);
-        }
+            if (credentialBytes != null)
+            {
+                return new SchedulerClient(restClient, credentialBytes);
+            } else
+            {
+                return new SchedulerClient(restClient, username, password);
+            }
+
+            
+        }     
 
         private static void ThrowIfNotOK(IRestResponse response)
         {
@@ -70,7 +133,7 @@ namespace SharpRestClient
                     throw ExceptionMapper.GetNotFound((string)obj.exceptionClass, (string)obj.errorMessage);
                 case System.Net.HttpStatusCode.InternalServerError:
                     obj = JObject.Parse(response.Content);
-                    throw ExceptionMapper.FromInternalError((string)obj.exceptionClass, (string)obj.errorMessage);
+                    throw ExceptionMapper.FromInternalError((string)obj.exceptionClass, (string)obj.errorMessage, (string)obj.stackTrace);
                 case System.Net.HttpStatusCode.Forbidden:
                     obj = JObject.Parse(response.Content);
                     throw ExceptionMapper.FromForbidden((string)obj.exceptionClass, (string)obj.errorMessage);
@@ -82,6 +145,9 @@ namespace SharpRestClient
             }
         }
 
+        /// <summary>
+        /// Returns true is there is a valid connection to the scheduler
+        /// </summary>
         public bool IsConnected()
         {
             RestRequest request = new RestRequest("/scheduler/isconnected", Method.GET);
@@ -92,8 +158,70 @@ namespace SharpRestClient
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
+        /// <summary>
+        /// Renew the current user session
+        /// </summary>
+        private void renewSession()
+        {
+
+            RestRequest request = new RestRequest("/scheduler/session", Method.PUT);
+            request.AddHeader("Content-Type", "application/x-www-form-urlencoded");
+            request.AddHeader("sessionid", ((SIDAuthenticator) _restClient.Authenticator).sessionid);
+            if (_username != null)
+            {
+                request.AddParameter("username", _username, ParameterType.GetOrPost);
+            }
+            if (_password != null)
+            {
+                request.AddParameter("password", _password, ParameterType.GetOrPost);
+            }
+            if (_credentialBytes != null)
+            {
+                request.AddFile("credential", _credentialBytes, "credentials", "application/octet-stream");                
+            }
+
+            IRestResponse response = _restClient.Execute(request);
+
+            if (response.ErrorException != null)
+            {
+                throw new InvalidOperationException("Unable to renew session of " + _restClient.BaseUrl, response.ErrorException);
+            }
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                throw new InvalidOperationException("Unable to renew session of " + _restClient.BaseUrl + " description: " + response.Content);
+            }
+
+            // if not exception and the response content size is correct then it's ok
+            string sessionid = response.Content;
+            _restClient.Authenticator = new SIDAuthenticator(sessionid);
+        }
+
+        /// <summary>
+        /// Create a credential file using the provided username and password
+        /// </summary>
+        /// <param name="username">login name of the user</param>
+        /// <param name="password">password of the user</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="PermissionException">if you are not allowed to create credentials</exception>
+        public byte[] CreateCredentials(string username, string password)
+        {
+            RestRequest request = new RestRequest("/scheduler/createcredential", Method.POST);
+            request.AddParameter("username", username, ParameterType.GetOrPost);
+            request.AddParameter("password", password, ParameterType.GetOrPost);
+            request.AlwaysMultipartFormData = true;
+            IRestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
+            byte[] data = _restClient.DownloadData(request);
+            return data;
+        }
+
+        /// <summary>
+        /// Returns the scheduler version
+        /// </summary>
         public Version GetVersion()
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/version", Method.GET);
             request.AddHeader("Accept", "application/json");
 
@@ -102,8 +230,12 @@ namespace SharpRestClient
             return JsonConvert.DeserializeObject<Version>(response.Content);
         }
 
+        /// <summary>
+        /// Gets the current status of the scheduler (Started, Stopped, etc)
+        /// </summary>
         public SchedulerStatus GetStatus()
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/status", Method.GET);
             request.AddHeader("Accept", "application/json");
 
@@ -113,10 +245,16 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Pause the running job given its jobId
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <exception cref="JobAlreadyFinishedException">if you want to pause an already finished job</exception>
         public bool PauseJob(JobId jobId)
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/pause", Method.PUT);
             request.AddHeader("Accept", "application/json");
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
@@ -127,10 +265,16 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Resume a paused job given its jobId
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <exception cref="JobAlreadyFinishedException">if you want to resume an already finished job</exception>
         public bool ResumeJob(JobId jobId)
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/resume", Method.PUT);
             request.AddHeader("Accept", "application/json");
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
@@ -141,10 +285,15 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Kill a job given its jobId
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         public bool KillJob(JobId jobId)
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/kill", Method.PUT);
             request.AddHeader("Accept", "application/json");
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
@@ -155,10 +304,15 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Remove a job from the scheduler memory. This call can also kill a running job.
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         public bool RemoveJob(JobId jobId)
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}", Method.DELETE);
             request.AddHeader("Accept", "application/json");
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
@@ -172,7 +326,7 @@ namespace SharpRestClient
         /// Change the priority of the job represented by jobId. 
         /// Only administrator can change the priority to HIGH, HIGEST, IDLE.
         /// </summary>
-        /// <param name="jobId"></param>
+        /// <param name="jobId">id of the job</param>
         /// <param name="priority"></param>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
@@ -180,6 +334,7 @@ namespace SharpRestClient
         /// <exception cref="JobAlreadyFinishedException">if you want to change the priority on a finished job</exception>
         public void ChangeJobPriority(JobId jobId, JobPriority priority)
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/priority/byvalue/{value}", Method.PUT);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("value", Convert.ToString((int)priority));
@@ -189,14 +344,25 @@ namespace SharpRestClient
         }
 
         // todo add stop/start/shutdown ...
+
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Submits a xml workflow accessible from the local file system       
         /// </summary>
+        /// <param name="filePath">path to the xml workflow on the local file system</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
+        /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
         public JobId SubmitXml(string filePath)
         {
             return _SubmitXml("/scheduler/submit", filePath);
         }
 
+        /// <summary>
+        /// Submits a xml workflow accessible from the local file system
+        /// </summary>
+        /// <param name="filePath">path to the xml workflow on the local file system</param>
+        /// <param name="variables">a dictionary of job variables to configure the job execution</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
+        /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
         public JobId SubmitXml(string filePath, Dictionary<string,string> variables) {
             String url = null;
             if (variables == null || variables.Count == 0)
@@ -215,8 +381,47 @@ namespace SharpRestClient
             return _SubmitXml(url, filePath);
         }
 
+
+        /// <summary>
+        /// Submits a xml workflow accessible from the given url
+        /// </summary>
+        /// <param name="workflowUrl">url used to access the xml workflow</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
+        /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
+        public JobId SubmitFromUrl(string workflowUrl)
+        {
+            return SubmitFromUrl(workflowUrl, null);
+        }
+
+        /// <summary>
+        /// Submits a xml workflow accessible from the given url
+        /// </summary>
+        /// <param name="workflowUrl">url used to access the xml workflow</param>
+        /// <param name="variables">a dictionary of job variables to configure the job execution</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
+        /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
+        public JobId SubmitFromUrl(string workflowUrl, Dictionary<string, string> variables)
+        {
+            String submissionUrl = null;
+            if (variables == null || variables.Count == 0)
+            {
+                submissionUrl = "/scheduler/jobs";
+            }
+            else
+            {
+                StringBuilder buf = new StringBuilder("/scheduler/jobs");
+                foreach (KeyValuePair<string, string> keyValue in variables)
+                {
+                    buf.Append(';').Append(HttpUtility.UrlEncode(keyValue.Key)).Append("=").Append(HttpUtility.UrlEncode(keyValue.Value));
+                }
+                submissionUrl = buf.ToString();
+            }        
+            return _SubmitUrl(submissionUrl, workflowUrl);
+        }
+
         private JobId _SubmitXml(string url, string filePath) 
         {
+            renewSession();
             RestRequest request = new RestRequest(url, Method.POST);
             request.AddHeader("Content-Type", "multipart/form-data");
             request.AddHeader("Accept", "application/json");
@@ -233,11 +438,30 @@ namespace SharpRestClient
             return JsonConvert.DeserializeObject<JobId>(response.Content);
         }
 
+        private JobId _SubmitUrl(string submissionUrl, string workflowUrl)
+        {
+            renewSession();
+            RestRequest request = new RestRequest(submissionUrl, Method.POST);
+            request.AddHeader("Content-Type", "multipart/form-data");
+            request.AddHeader("Accept", "application/json");
+            request.AddHeader("link", workflowUrl);               
+
+            var response = _restClient.Execute(request);
+
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<JobId>(response.Content);
+        }
+
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Returns the state of a job given its jobId
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         public JobState GetJobState(JobId jobId)
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}", Method.GET);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddHeader("Accept", "application/json");
@@ -248,18 +472,51 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Returns the state of a task given its jobId and task name
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">the task name</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="UnknownTaskException">if the task does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        public TaskState GetTaskState(JobId jobId, string taskName)
+        {
+            renewSession();
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskName}", Method.GET);
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.AddUrlSegment("taskName", taskName);
+            request.AddHeader("Accept", "application/json");
+
+            IRestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<TaskState>(response.Content);
+        }
+
+
+
+        /// <summary>
+        /// Returns true if the job is not finished yet
+        /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         public bool isJobAlive(JobId jobId)
         {
             return this.GetJobState(jobId).JobInfo.IsAlive();
         }
 
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Returns the result of the given job. The JobResult structure contains multiple information regarding the job execution
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         public JobResult GetJobResult(JobId jobId)
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/result", Method.GET);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddHeader("Accept-Encoding", "gzip");
@@ -271,10 +528,15 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Returns the string result value of the given job
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         public IDictionary<string, string> GetJobResultValue(JobId jobId)
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/result/value", Method.GET);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddHeader("Accept-Encoding", "gzip");
@@ -286,11 +548,17 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// The job is paused waiting for user to resume it.
+        /// Wait until the given job is finished and return its result.
         /// NotConnectedException, UnknownJobException, PermissionException, TimeoutException
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="timeoutInMs">maximum wait time in milliseconds</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         public JobResult WaitForJobResult(JobId jobId, int timeoutInMs)
         {
+            renewSession();
             var cts = new CancellationTokenSource(timeoutInMs);
             Task<JobResult> tr = Task.Run(async delegate
                 {
@@ -318,11 +586,16 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// The job is paused waiting for user to resume it.
-        /// NotConnectedException, UnknownJobException, PermissionException, TimeoutException
+        /// Wait until the given job is finished and return its string value result.
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="timeoutInMs">maximum wait time in milliseconds</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         public IDictionary<string,string> WaitForJobResultValue(JobId jobId, int timeoutInMs)
         {
+            renewSession();
             var cts = new CancellationTokenSource(timeoutInMs);
             Task<IDictionary<string, string>> tr = Task.Run(async delegate
             {
@@ -351,6 +624,7 @@ namespace SharpRestClient
 
         private async Task<JobResult> WaitForJobResultAsync(JobId jobId, CancellationToken cancelToken)
         {
+            renewSession();
             JobState state = GetJobState(jobId);
             if (!state.JobInfo.IsAlive())
             {
@@ -365,6 +639,7 @@ namespace SharpRestClient
 
         private async Task<IDictionary<string, string>> WaitForJobResultValueAsync(JobId jobId, CancellationToken cancelToken)
         {
+            renewSession();
             JobState state = GetJobState(jobId);
             if (!state.JobInfo.IsAlive())
             {
@@ -378,10 +653,16 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Returns the result of the given task. The TaskResult structure contains multiple information regarding the task execution
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">name of the task inside the given job</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         public TaskResult GetTaskResult(JobId jobId, string taskName) 
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result", Method.GET);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskname", taskName);
@@ -401,10 +682,16 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Returns the output and error log of the given finished task.
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">name of the task inside the given job</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         public string GetAllTaskLogs(JobId jobId, string taskName)
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/all", Method.GET);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskname", taskName);
@@ -417,10 +704,16 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Returns the output log of the given finished task.
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">name of the task inside the given job</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         public string GetStdOutTaskLogs(JobId jobId, string taskName)
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/out", Method.GET);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskname", taskName);
@@ -433,10 +726,16 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Returns the error log of the given finished task.
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">name of the task inside the given job</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         public string GetStdErrTaskLogs(JobId jobId, string taskName)
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/err", Method.GET);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskname", taskName);
@@ -449,10 +748,16 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Returns the string value of the given task result.
         /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">name of the task inside the given job</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         public string GetTaskResultValue(JobId jobId, string taskName)
         {
+            renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/value", Method.GET);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskname", taskName);
@@ -464,12 +769,22 @@ namespace SharpRestClient
             return response.Content;
         }
 
-        // example PushFile("GLOBALSPACE", "", "file.txt", "c:\tmp\file.txt")
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Push the given file, accessible from the local file system to a remote scheduler server data space (GLOBALSPACE or USERSPACE).
+        /// 
+        /// example PushFile("GLOBALSPACE", "", "file.txt", "c:\tmp\file.txt")
         /// </summary>
+        /// <param name="spacename">Server dataspace name, can either be GLOBALSPACE or USERSPACE</param>
+        /// <param name="pathname">Remote path inside the remote dataspace, use "" to push the file inside the dataspace root</param>
+        /// <param name="filename">file name to use on the remote dataspace</param>
+        /// <param name="file">path to the local file</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="PermissionException">if you are not allowed to push files</exception>
+        /// <exception cref="SchedulerException">if an error occurs on the server side</exception>
+        /// <exception cref="ArgumentException">if arguments are not valid</exception>
         public bool PushFile(string spacename, string pathname, string filename, string file)
         {
+            renewSession();
             StringBuilder urlBld = new StringBuilder("/scheduler/dataspace/");
             // spacename: GLOBALSPACE or USERSPACE
             urlBld.Append(spacename).Append("/");
@@ -492,10 +807,20 @@ namespace SharpRestClient
 
         // !! DANGEROUS !! - Loads all data in memory before writing to a file
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Pull the given file, accessible from a remote data space (GLOBALSPACE or USERSPACE), to a local file.
+        /// 
+        /// example PullFile("GLOBALSPACE", "file.txt", "c:\tmp\file.txt")
         /// </summary>
+        /// <param name="spacename">Server dataspace name, can either be GLOBALSPACE or USERSPACE</param>
+        /// <param name="pathname">Remote path inside the remote dataspace to copy from</param>
+        /// <param name="outputFile">path to the local file</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="PermissionException">if you are not allowed to push files</exception>
+        /// <exception cref="SchedulerException">if an error occurs on the server side</exception>
+        /// <exception cref="ArgumentException">if arguments are not valid</exception>
         public bool PullFile(string spacename, string pathname, string outputFile)
         {
+            renewSession();
             StringBuilder urlBld = new StringBuilder("/scheduler/dataspace/");
             // spacename: GLOBALSPACE or USERSPACE
             urlBld.Append(spacename).Append("/");
@@ -524,7 +849,7 @@ namespace SharpRestClient
         public bool PushDirectory(string spacename, string pathname, 
             string localdir, string wildcard)
         {
-            
+            renewSession();
             string[] filenames = Directory.GetFiles(
                 localdir, wildcard, SearchOption.AllDirectories);
 
@@ -538,10 +863,19 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// throws NotConnectedException, UnknownJobException, PermissionException
+        /// Delete a file from the remote data space (GLOBALSPACE or USERSPACE).
+        /// 
+        /// example DeleteFile("GLOBALSPACE", "file.txt")
         /// </summary>
+        /// <param name="spacename">Server dataspace name, can either be GLOBALSPACE or USERSPACE</param>
+        /// <param name="pathname">Remote path inside the remote dataspace, use "" to push the file inside the dataspace root</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="PermissionException">if you are not allowed to push files</exception>
+        /// <exception cref="SchedulerException">if an error occurs on the server side</exception>
+        /// <exception cref="ArgumentException">if arguments are not valid</exception>
         public bool DeleteFile(string spacename, string pathname)
         {
+            renewSession();
             StringBuilder urlBld = new StringBuilder("/scheduler/dataspace/");
             // spacename: GLOBALSPACE or USERSPACE
             urlBld.Append(spacename).Append("/");
@@ -555,7 +889,7 @@ namespace SharpRestClient
         }
 
         //method for converting stream to byte[]
-        private byte[] ReadToEnd(System.IO.Stream stream)
+        private static byte[] ReadToEnd(System.IO.Stream stream)
         {
             long originalPosition = stream.Position;
             stream.Position = 0;
@@ -625,7 +959,7 @@ namespace SharpRestClient
     /// </summary>
     sealed class SIDAuthenticator : IAuthenticator
     {
-        private readonly string sessionid;
+        public readonly string sessionid;
 
         public SIDAuthenticator(string newSessionid)
         {
