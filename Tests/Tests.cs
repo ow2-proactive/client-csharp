@@ -4,17 +4,29 @@ using SharpRestClient;
 using System.IO;
 using SharpRestClient.Exceptions;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace Tests
 {
     [TestClass]
     public class RestClientTests
     {
-        public static readonly string LOCAL_REST_SERVER_URL = "http://localhost:8080/rest";
 
-        public static readonly string TRY_REST_SERVER_URL = "https://try.activeeon.com/rest";
+        public static readonly string LOCAL_SERVER_URL = "http://localhost:8080";
+
+        public static readonly string LOCAL_REST_SERVER_URL = LOCAL_SERVER_URL + "/rest";
+
+        public static readonly string TRY_SERVER_URL = "https://try.activeeon.com";
+
+        public static readonly string TRY_REST_SERVER_URL = TRY_SERVER_URL + "/rest";
 
         public static SchedulerClient sc;
+
+        private static string username;
+        private static string password;
+
+        private static string schedulerUrl;
+        private static string schedulerRestUrl;
 
         [ClassInitialize]
         public static void BeforeAll(TestContext ctx)
@@ -23,17 +35,37 @@ namespace Tests
             {
                 Console.WriteLine("Trying to connect to " + LOCAL_REST_SERVER_URL);
                 sc = SchedulerClient.Connect(LOCAL_REST_SERVER_URL, "admin", "admin");
+                schedulerRestUrl = LOCAL_REST_SERVER_URL;
+                schedulerUrl = LOCAL_SERVER_URL;
+                username = "admin";
+                password = "admin";
             }
             catch (Exception)
             {
                 Console.WriteLine("No Scheduler running on localhost, trying to connect to " + TRY_REST_SERVER_URL);
                 try
                 {
-                    string p = Environment.GetEnvironmentVariable("TRY_DEMO_PASS", EnvironmentVariableTarget.Machine);
-                    sc = SchedulerClient.Connect(TRY_REST_SERVER_URL, "demo", p);
+                    string user;
+                    string pass;
+                    if (Properties.Settings.Default.TRY_USER != null)
+                    {
+                        user = (string) Properties.Settings.Default.TRY_USER;
+                        pass = (string) Properties.Settings.Default.TRY_PASS;
+                    }
+                    else
+                    {
+                        user = Environment.GetEnvironmentVariable("TRY_USER", EnvironmentVariableTarget.Machine);
+                        pass = Environment.GetEnvironmentVariable("TRY_PASS", EnvironmentVariableTarget.Machine);
+                    }
+                    sc = SchedulerClient.Connect(TRY_REST_SERVER_URL, user, pass);
+                    schedulerRestUrl = TRY_REST_SERVER_URL;
+                    schedulerUrl = TRY_SERVER_URL;
+                    username = user;
+                    password = pass;
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
+                    Console.Error.WriteLine(e.ToString());
                     Assert.Fail("Unable to run tests! There is no scheduler running on try!");
                 }
             }
@@ -42,13 +74,13 @@ namespace Tests
             SharpRestClient.Version ver = sc.GetVersion();
             Assert.IsNotNull(ver.Scheduler);
             Assert.IsNotNull(ver.Rest);
-            if (!ver.Scheduler.StartsWith("6"))
+            if (!ver.Scheduler.StartsWith("7"))
             {
-                Assert.Fail("The Scheduler version is not 6.X");
+                Assert.Fail("The Scheduler version is not 7.X");
             }
-            if (!ver.Rest.StartsWith("6"))
+            if (!ver.Rest.StartsWith("7"))
             {
-                Assert.Fail("The Rest version is not 6.X");
+                Assert.Fail("The Rest version is not 7.X");
             }
         }
 
@@ -197,10 +229,48 @@ namespace Tests
         }
 
         [TestMethod]
+        public void SubmitFromUrl()
+        {
+            string jobname = "Pre-Post-Clean Scripts";
+            JobId jid = sc.SubmitFromUrl(schedulerUrl + "/catalog/buckets/1000/resources/Pre-Post-Clean+Scripts/raw");
+            try
+            {
+                Assert.AreNotEqual<long>(0, jid.Id, "After submission the job id is invalid!");
+                Assert.AreEqual<string>(jobname, jid.ReadableName, "After submission the job name is invalid!");
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
+        }
+
+        [TestMethod]
+        public void ConnectWithCredentials()
+        {
+            byte[] credentials = sc.CreateCredentials(username, password);
+
+            Assert.AreNotEqual<int>(0, credentials.Length, "Empty array returned by CreateCredentials!");
+
+            string tempFilePath = Path.GetTempFileName();
+            File.WriteAllBytes(tempFilePath, credentials);
+
+            Console.WriteLine("Trying to connect to " + schedulerRestUrl);
+            SchedulerClient sc2 = SchedulerClient.Connect(schedulerRestUrl, tempFilePath);
+
+            // verify that we can perform an operation with the new connection
+            byte[] credentials2 = sc2.CreateCredentials(username, password);
+
+            Assert.AreNotEqual<int>(0, credentials2.Length, "Empty array returned by CreateCredentials!");
+
+        }
+
+        [TestMethod]
         public void PauseResumeJob()
         {
-            string jobname = "script_task_with_result";
+            string jobname = "LoopJob";
             JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            Thread.Sleep(1000);
             try
             {
                 bool isPaused = sc.PauseJob(jid);
@@ -210,6 +280,7 @@ namespace Tests
             }
             finally
             {
+                sc.KillJob(jid);
                 sc.RemoveJob(jid);
             }
         }
@@ -234,6 +305,8 @@ namespace Tests
                 Assert.IsNotNull(jr);
                 TaskResult tr = jr.Tasks["simple_task"];
                 Assert.IsNotNull(tr);
+                Assert.IsNotNull(tr.PropagatedVariables);
+                Assert.AreEqual<string>(jobname, tr.PropagatedVariables["PA_JOB_NAME"]);
             }
             finally
             {
@@ -327,6 +400,28 @@ namespace Tests
         {
             JobId invalidJid = new JobId();
             sc.GetJobState(invalidJid);
+        }
+
+        [TestMethod]
+        public void GetJobTaskState()
+        {
+            string jobname = "one_minute_script_task";
+            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            try
+            { 
+                Thread.Sleep(1000);
+                JobState jobState = sc.GetJobState(jid);
+                Assert.AreEqual<JobStatus>(JobStatus.RUNNING, jobState.JobInfo.Status);
+                Assert.AreEqual<TaskStatus>(TaskStatus.RUNNING, jobState.Tasks["0"].TaskInfo.TaskStatus);
+                TaskState taskState = sc.GetTaskState(jid, "simple_task");
+                Assert.IsNotNull(taskState);
+                Assert.AreEqual<TaskStatus>(TaskStatus.RUNNING, taskState.TaskInfo.TaskStatus);
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
         }
 
         [TestMethod]

@@ -4,6 +4,9 @@ using System;
 using System.IO;
 namespace SharpRestClient.Exceptions
 {
+    /// <summary>
+    /// Internal Exception of the ProActive Scheduler
+    /// </summary>
     public class SchedulerException : Exception
     {
         public SchedulerException() : base() { }
@@ -11,6 +14,9 @@ namespace SharpRestClient.Exceptions
         public SchedulerException(string message, Exception innerException) : base(message, innerException) { }
     }
 
+    /// <summary>
+    /// Exception occurring during the login phase
+    /// </summary>
     public class LoginException : SchedulerException
     {
         public LoginException() : base() { }
@@ -18,6 +24,9 @@ namespace SharpRestClient.Exceptions
         public LoginException(string message, Exception innerException) : base(message, innerException) { }
     }
 
+    /// <summary>
+    /// The session is not currently connected to the scheduler
+    /// </summary>
     public class NotConnectedException : SchedulerException
     {
         public NotConnectedException() : base() { }
@@ -25,6 +34,9 @@ namespace SharpRestClient.Exceptions
         public NotConnectedException(string message, Exception innerException) : base(message, innerException) { }
     }
 
+    /// <summary>
+    /// The session is not allowed to perform the requested operation
+    /// </summary>
     public class PermissionException : SchedulerException
     {
         public PermissionException() : base() { }
@@ -32,6 +44,9 @@ namespace SharpRestClient.Exceptions
         public PermissionException(string message, Exception innerException) : base(message, innerException) { }
     }
 
+    /// <summary>
+    /// SubmissionClosedException
+    /// </summary>
     public class SubmissionClosedException : SchedulerException
     {
         public SubmissionClosedException() : base() { }
@@ -39,6 +54,9 @@ namespace SharpRestClient.Exceptions
         public SubmissionClosedException(string message, Exception innerException) : base(message, innerException) { }
     }
 
+    /// <summary>
+    /// The job is already finished and the requested operation cannot be performed
+    /// </summary>
     public class JobAlreadyFinishedException : SchedulerException
     {
         public JobAlreadyFinishedException() : base() { }
@@ -46,12 +64,16 @@ namespace SharpRestClient.Exceptions
         public JobAlreadyFinishedException(string message, Exception innerException) : base(message, innerException) { }
     }
 
+    /// <summary>
+    /// The job could not be created, for example due to a parsing error
+    /// </summary>
     public class JobCreationException : SchedulerException
     {
         public JobCreationException() : base() { }
         public JobCreationException(string message) : base(message) { }
         public JobCreationException(string message, Exception innerException) : base(message, innerException) { }
     }
+
 
     public class UserException : SchedulerException
     {
@@ -60,6 +82,9 @@ namespace SharpRestClient.Exceptions
         public UserException(string message, Exception innerException) : base(message, innerException) { }
     }
 
+    /// <summary>
+    /// The requested task is unknown
+    /// </summary>
     public class UnknownTaskException : SchedulerException
     {
         public UnknownTaskException() : base() { }
@@ -69,6 +94,9 @@ namespace SharpRestClient.Exceptions
         public UnknownTaskException(TaskId taskId, JobId jobId) : base("The task " + taskId + " of job " + jobId + " is unknown!") { }
     }
 
+    /// <summary>
+    /// The requested job is unknown
+    /// </summary>
     public class UnknownJobException : SchedulerException
     {
         public UnknownJobException() : base() { }
@@ -77,6 +105,9 @@ namespace SharpRestClient.Exceptions
         public UnknownJobException(JobId jobId) : base("The job " + jobId + " does not exists!") { }
     }
 
+    /// <summary>
+    /// helper used to transform exceptions
+    /// </summary>
     public sealed class ExceptionMapper
     {
         public const string T = "java.lang.Throwable";
@@ -95,7 +126,11 @@ namespace SharpRestClient.Exceptions
         public const string SRE = "org.ow2.proactive_grid_cloud_portal.scheduler.exception.SchedulerRestException";
         public const string SCRE = "org.ow2.proactive_grid_cloud_portal.scheduler.exception.SubmissionClosedRestException";
         public const string UJRE = "org.ow2.proactive_grid_cloud_portal.scheduler.exception.UnknownJobRestException";
+        public const string UTRE = "org.ow2.proactive_grid_cloud_portal.scheduler.exception.UnknownTaskRestException";
 
+        /// <summary>
+        /// find an exception
+        /// </summary>
         public static Exception GetNotFound(string exceptionClass, string errorMessage)
         {
             switch (exceptionClass)
@@ -116,26 +151,34 @@ namespace SharpRestClient.Exceptions
                     return new SubmissionClosedException(errorMessage);
                 case UJRE:
                     return new UnknownJobException(errorMessage);
+                case UTRE:
+                    return new UnknownTaskException(errorMessage);
                 default:
                     return new SchedulerException(errorMessage);
             }
         }
 
-        public static Exception FromInternalError(string exceptionClass, string errorMessage)
+        /// <summary>
+        /// find an exception from an internal error
+        /// </summary>
+        public static Exception FromInternalError(string exceptionClass, string errorMessage, string stackTrace)
         {
             switch (exceptionClass)
             {
                 case RE:
-                    return new SystemException(errorMessage);
+                    return new SystemException(errorMessage, new SystemException(stackTrace));
                 case IAE:
-                    return new ArgumentException(errorMessage);
+                    return new ArgumentException(errorMessage, new SystemException(stackTrace));
                 case T:
-                    return new Exception(errorMessage);
+                    return new Exception(errorMessage, new SystemException(stackTrace));
                 default:
-                    return new SchedulerException(errorMessage);
+                    return new SchedulerException(errorMessage, new SystemException(stackTrace));
             }
         }
 
+        /// <summary>
+        /// find an exception from a permission error
+        /// </summary>
         public static Exception FromForbidden(string exceptionClass, string errorMessage)
         {
             switch (exceptionClass)
@@ -148,6 +191,9 @@ namespace SharpRestClient.Exceptions
             }
         }
 
+        /// <summary>
+        /// find an exception from a permission error
+        /// </summary>
         public static Exception FromUnauthorized(string exceptionClass, string errorMessage)
         {
             switch (exceptionClass)
