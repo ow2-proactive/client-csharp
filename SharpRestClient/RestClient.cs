@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using SharpRestClient.Exceptions;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
 
 namespace SharpRestClient
 {
@@ -121,7 +122,44 @@ namespace SharpRestClient
             }
 
             
-        }     
+        }
+
+        /// <summary>
+        /// Serialize the given object using NetDataContractSerializer
+        /// </summary>
+        /// <param name="obj">object to serialize</param>
+        public static string SerializeWithNetDcs(object obj)
+        {
+            using (var ms = new MemoryStream())
+            {
+                using (var sr = new StreamReader(ms, Encoding.UTF8))
+                {
+                    var serializer = new NetDataContractSerializer();
+                    serializer.WriteObject(ms, obj);
+                    ms.Position = 0;
+                    return sr.ReadToEnd();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Deserialize the given xml string using NetDataContractSerializer
+        /// </summary>
+        /// <param name="xml">xml string to deserialize</param>
+        public static object DeserializeWithNetDcs(string xml)
+        {
+            using (var ms = new MemoryStream())
+            {
+                using (var sw = new StreamWriter(ms, Encoding.UTF8))
+                {
+                    sw.Write(xml);
+                    sw.Flush();
+                    ms.Position = 0;
+                    var deserializer = new NetDataContractSerializer();
+                    return deserializer.ReadObject(ms);
+                }
+            }
+        }
 
         private static void ThrowIfNotOK(IRestResponse response)
         {
