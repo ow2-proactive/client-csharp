@@ -343,6 +343,14 @@ namespace SharpRestClient
         /// </summary>
         [JsonProperty("progress")]
         public int Progress { get; set; }
+
+        /// <summary>
+        /// True if this task is not finished yet.
+        /// </summary>
+        public bool IsAlive()
+        {
+            return this.TaskStatus == TaskStatus.SUBMITTED || this.TaskStatus == TaskStatus.PENDING || this.TaskStatus == TaskStatus.RUNNING || this.TaskStatus == TaskStatus.PAUSED || this.TaskStatus == TaskStatus.IN_ERROR || this.TaskStatus == TaskStatus.WAITING_ON_ERROR || this.TaskStatus == TaskStatus.WAITING_ON_FAILURE;
+        }
     }
 
     /// <summary>
@@ -420,7 +428,7 @@ namespace SharpRestClient
         /// <summary>
         /// id of this Job 
         /// </summary>
-        [JsonProperty("id")]
+        [JsonProperty("jobId")]
         public JobIdData JobId { get; set; }
         /// <summary>
         /// This job's starting time (one task at least started) 
@@ -515,6 +523,48 @@ namespace SharpRestClient
         {            
             return this.Status == JobStatus.PENDING || this.Status == JobStatus.RUNNING || this.Status == JobStatus.STALLED || this.Status == JobStatus.PAUSED || this.Status == JobStatus.IN_ERROR;
         }
+    }
+
+    /// <summary>
+    /// Represents the state of a job submitted to the scheduler, including the job owner
+    /// </summary>
+    public sealed class UserJobData
+    {
+        /// <summary>
+        /// id of this Job 
+        /// </summary>
+        [JsonProperty("jobId")]
+        public string JobId { get; set; }
+
+        /// <summary>
+        /// owner of this Job 
+        /// </summary>
+        [JsonProperty("jobOwner")]
+        public string Owner { get; set; }
+
+        /// <summary>
+        /// job info 
+        /// </summary>
+        [JsonProperty("jobInfo")]
+        public JobInfo JobInfo { get; set; }
+    }
+
+    /// <summary>
+    /// A Rest page
+    /// </summary>
+    public sealed class RestPage
+    {
+        /// <summary>
+        /// id of this Job 
+        /// </summary>
+        [JsonProperty("size")]
+        public int Size { get; set; }
+
+        /// <summary>
+        /// owner of this Job 
+        /// </summary>
+        [JsonProperty("map")]
+        public IDictionary<long, List<UserJobData>> Map { get; set; }
     }
 
     /// <summary>

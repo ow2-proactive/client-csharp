@@ -285,6 +285,40 @@ namespace SharpRestClient
         }
 
         /// <summary>
+        /// Returns a list of jobs according to certain filter criterias
+        /// </summary>
+        /// <param name="index">index in the list used as a starting point</param>
+        /// <param name="limit">maximum number of items in the list</param>
+        /// <param name="myJobs">return only jobs belonging to the current user</param>
+        /// <param name="pending">include pending jobs</param>
+        /// <param name="running">include runnning jobs</param>
+        /// <param name="finished">include finished jobs</param>
+        /// <param name="sortParams">sort instructions</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="PermissionException">if you are not allowed to display the scheduler job list</exception>
+        public List<UserJobData> ListJobs(int index = 0, int limit = 50, bool myJobs = true, bool pending = true, bool running = true, bool finished = true, string sortParams = null)
+        {
+            renewSession();
+            RestRequest request = new RestRequest("/scheduler/revisionjobsinfo", Method.GET);
+            request.AddHeader("Accept", "application/json");
+            request.AddParameter("index", index, ParameterType.QueryString);
+            request.AddParameter("limit", limit, ParameterType.QueryString);
+            request.AddParameter("myJobs", myJobs, ParameterType.QueryString);
+            request.AddParameter("pending", pending, ParameterType.QueryString);
+            request.AddParameter("running", running, ParameterType.QueryString);
+            request.AddParameter("finished", finished, ParameterType.QueryString);
+            if (sortParams != null)
+            {
+                request.AddParameter("sortParams", sortParams, ParameterType.QueryString);
+            }
+
+            IRestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
+            RestPage page = JsonConvert.DeserializeObject<RestPage>(response.Content);
+            return page.Map.Values.First();
+        }
+
+        /// <summary>
         /// Pause the running job given its jobId
         /// </summary>
         /// <param name="jobId">id of the job</param>
@@ -344,6 +378,35 @@ namespace SharpRestClient
         }
 
         /// <summary>
+        /// Resubmits a job given its jobId
+        /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="variables">a dictionary of job variables to configure the job execution</param>
+        /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
+        /// <returns>id of the new job</returns>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        public JobIdData ResubmitJob(JobIdData jobId, IDictionary<string, string> variables = null, IDictionary<string, string> genericInfo = null)
+        {
+            renewSession();
+            RestRequest request = new RestRequest(getSubmitUrlWithVariables("/scheduler/jobs/{jobid}/resubmit", variables), Method.GET);
+            request.AddHeader("Accept", "application/json");
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            if (genericInfo != null && genericInfo.Count > 0)
+            {
+                foreach (KeyValuePair<string, string> pair in genericInfo)
+                {
+                    request.AddParameter(pair.Key, pair.Value, ParameterType.QueryString);
+                }
+            }
+
+            IRestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<JobIdData>(response.Content);
+        }
+
+        /// <summary>
         /// Remove a job from the scheduler memory. This call can also kill a running job.
         /// </summary>
         /// <param name="jobId">id of the job</param>
@@ -391,6 +454,8 @@ namespace SharpRestClient
         /// <param name="job">Task Flow job to submit</param>
         /// <param name="variables">a dictionary of job variables to configure the job execution</param>
         /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
+        /// <param name="printXml">display the workflow xml content on the Console</param>
+        /// <returns>id of the new job</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
         /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
         public JobIdData SubmitJob(TaskFlowJob job, IDictionary<string, string> variables = null, IDictionary<string, string> genericInfo = null, bool printXml = false)
@@ -412,6 +477,7 @@ namespace SharpRestClient
         /// <param name="filePath">path to the xml workflow on the local file system</param>
         /// <param name="variables">a dictionary of job variables to configure the job execution</param>
         /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
+        /// <returns>id of the new job</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
         /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
         public JobIdData SubmitXml(string filePath, IDictionary<string,string> variables = null, IDictionary<string,string> genericInfo = null) {
@@ -426,6 +492,7 @@ namespace SharpRestClient
         /// <param name="workflowUrl">url used to access the xml workflow</param>
         /// <param name="variables">a dictionary of job variables to configure the job execution</param>
         /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
+        /// <returns>id of the new job</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
         /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
         public JobIdData SubmitFromUrl(string workflowUrl, IDictionary<string, string> variables = null, IDictionary<string, string> genericInfo = null)
@@ -656,6 +723,46 @@ namespace SharpRestClient
         }
 
         /// <summary>
+        /// Wait until the given task is finished and return its result.
+        /// NotConnectedException, UnknownJobException, UnknownTaskException, PermissionException, TimeoutException
+        /// </summary>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">name of the task</param>
+        /// <param name="timeoutInMs">maximum wait time in milliseconds</param>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="UnknownTaskException" if the task does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        public TaskResult WaitForTaskResult(JobIdData jobId, string taskName, int timeoutInMs)
+        {
+            renewSession();
+            var cts = new CancellationTokenSource(timeoutInMs);
+            Task<TaskResult> tr = Task.Run(async delegate
+            {
+                return await WaitForTaskResultAsync(jobId, taskName, cts.Token);
+            }, cts.Token);
+            try
+            {
+                tr.Wait();
+            }
+            catch (AggregateException ae)
+            {
+                foreach (var e in ae.InnerExceptions)
+                {
+                    if (e is TaskCanceledException) // occurs in case of timeout
+                    {
+                        throw new TimeoutException("Timeout waiting for the task " + taskName + " of job " + jobId);
+                    }
+                    else
+                    {
+                        throw e;
+                    }
+                }
+            }
+            return tr.Result;
+        }
+
+        /// <summary>
         /// Wait until the given job is finished and return its string value result.
         /// </summary>
         /// <param name="jobId">id of the job</param>
@@ -704,6 +811,21 @@ namespace SharpRestClient
             {
                 await Task.Delay(RETRY_INTERVAL_MS, cancelToken);
                 return await WaitForJobResultAsync(jobId, cancelToken);
+            }
+        }
+
+        private async Task<TaskResult> WaitForTaskResultAsync(JobIdData jobId, string taskName, CancellationToken cancelToken)
+        {
+            renewSession();
+            TaskState state = GetTaskState(jobId, taskName);
+            if (!state.TaskInfo.IsAlive())
+            {
+                return GetTaskResult(jobId, taskName);
+            }
+            else
+            {
+                await Task.Delay(RETRY_INTERVAL_MS, cancelToken);
+                return await WaitForTaskResultAsync(jobId, taskName, cancelToken);
             }
         }
 

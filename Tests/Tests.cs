@@ -239,6 +239,70 @@ namespace Tests
         }
 
         [TestMethod]
+        public void ListJobs()
+        {
+            string jobname = "script_task_with_result";
+            JobIdData jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            try
+            {
+                Assert.AreNotEqual<long>(0, jid.Id, "After submission the job id is invalid!");
+                Assert.AreEqual<string>(jobname, jid.ReadableName, "After submission the job name is invalid!");
+                List<UserJobData> jobs = sc.ListJobs();
+                Assert.IsTrue(jobs.Count > 0);
+                bool jobFound = false;
+                foreach(UserJobData jobData in jobs)
+                {
+                    Assert.IsNotNull(jobData.JobId);
+                    if (jobData.JobId.Equals(jid.Id.ToString()))
+                    {
+                        jobFound = true;
+                        Assert.IsNotNull(jobData.JobInfo);
+                        Assert.IsNotNull(jobData.Owner);
+                        Assert.IsNotNull(jobData.JobInfo.JobId);
+                        Assert.AreEqual(jobData.JobId, jobData.JobInfo.JobId.Id.ToString());
+                    }
+                }
+                Assert.IsTrue(jobFound);
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
+        }
+
+        [TestMethod]
+        public void ResubmitJob()
+        {
+            string jobname = "script_task_with_result";
+            JobIdData jid = sc.SubmitXml(GetWorkflowPath(jobname));            
+            try
+            {
+                Assert.AreNotEqual<long>(0, jid.Id, "After submission the job id is invalid!");
+                Assert.AreEqual<string>(jobname, jid.ReadableName, "After submission the job name is invalid!");
+
+            }
+            finally
+            {
+                sc.KillJob(jid);               
+            }
+
+            JobIdData jid2 = sc.ResubmitJob(jid);
+            try
+            {
+                Assert.AreNotEqual<long>(0, jid2.Id, "After submission the job id is invalid!");
+                Assert.AreEqual<string>(jobname, jid2.ReadableName, "After submission the job name is invalid!");
+
+            }
+            finally
+            {
+                sc.KillJob(jid2);
+            }
+            sc.RemoveJob(jid);
+            sc.RemoveJob(jid2);
+        }
+
+        [TestMethod]
         public void SubmitFromUrl()
         {
             string jobname = "Pre_Post_Clean_Scripts";
