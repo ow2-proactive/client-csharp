@@ -5,6 +5,9 @@ using System.IO;
 using SharpRestClient.Exceptions;
 using System.Collections.Generic;
 using System.Threading;
+using org.ow2.proactive.scheduler.common.task;
+using org.ow2.proactive.scheduler.common.job;
+using org.ow2.proactive.scripting;
 
 namespace Tests
 {
@@ -16,7 +19,7 @@ namespace Tests
 
         public static readonly string LOCAL_REST_SERVER_URL = LOCAL_SERVER_URL + "/rest";
 
-        public static readonly string TRY_SERVER_URL = "https://try.activeeon.com";
+        public static readonly string TRY_SERVER_URL = "https://system-tests-only.activeeon.com";
 
         public static readonly string TRY_REST_SERVER_URL = TRY_SERVER_URL + "/rest";
 
@@ -43,20 +46,25 @@ namespace Tests
             catch (Exception)
             {
                 Console.WriteLine("No Scheduler running on localhost, trying to connect to " + TRY_REST_SERVER_URL);
+
+                string user;
+                string pass;
+                if (Properties.Settings.Default.TRY_USER != null)
+                {
+                    user = (string)Properties.Settings.Default.TRY_USER;
+                    pass = (string)Properties.Settings.Default.TRY_PASS;
+                }
+                else
+                {
+                    user = Environment.GetEnvironmentVariable("TRY_USER", EnvironmentVariableTarget.Machine);
+                    pass = Environment.GetEnvironmentVariable("TRY_PASS", EnvironmentVariableTarget.Machine);
+                }
+                if (String.IsNullOrEmpty(user) || String.IsNullOrEmpty(pass))
+                {
+                    Assert.Fail("Unable to run tests! No local scheduler running and no user configured for the try platform, please edit the project properties TRY_USER and TRY_PASS");
+                }
                 try
                 {
-                    string user;
-                    string pass;
-                    if (Properties.Settings.Default.TRY_USER != null)
-                    {
-                        user = (string) Properties.Settings.Default.TRY_USER;
-                        pass = (string) Properties.Settings.Default.TRY_PASS;
-                    }
-                    else
-                    {
-                        user = Environment.GetEnvironmentVariable("TRY_USER", EnvironmentVariableTarget.Machine);
-                        pass = Environment.GetEnvironmentVariable("TRY_PASS", EnvironmentVariableTarget.Machine);
-                    }
                     sc = SchedulerClient.Connect(TRY_REST_SERVER_URL, user, pass);
                     schedulerRestUrl = TRY_REST_SERVER_URL;
                     schedulerUrl = TRY_SERVER_URL;
@@ -74,14 +82,14 @@ namespace Tests
             SharpRestClient.Version ver = sc.GetVersion();
             Assert.IsNotNull(ver.Scheduler);
             Assert.IsNotNull(ver.Rest);
-            if (!ver.Scheduler.StartsWith("7"))
-            {
-                Assert.Fail("The Scheduler version is not 7.X");
-            }
-            if (!ver.Rest.StartsWith("7"))
-            {
-                Assert.Fail("The Rest version is not 7.X");
-            }
+            /*            if (!ver.Scheduler.StartsWith("7"))
+                        {
+                            Assert.Fail("The Scheduler version is not 7.X");
+                        }
+                        if (!ver.Rest.StartsWith("7"))
+                        {
+                            Assert.Fail("The Rest version is not 7.X");
+                        }*/
         }
 
         [ClassCleanup]
@@ -116,7 +124,7 @@ namespace Tests
             finally
             {
                 // Delete the local file
-                fileInfo.Delete(); 
+                fileInfo.Delete();
             }
             Assert.IsTrue(sc.PullFile("GLOBALSPACE", fileInfo.Name, fileInfo.FullName));
             Assert.IsTrue(fileInfo.Exists);
@@ -127,7 +135,9 @@ namespace Tests
             try
             {
                 Assert.IsFalse(sc.DeleteFile("GLOBALSPACE", fileInfo.Name));
-            } catch (Exception e) {
+            }
+            catch (Exception e)
+            {
                 Assert.IsInstanceOfType(e, typeof(ArgumentException));
             }
         }
@@ -141,17 +151,17 @@ namespace Tests
             //   <testtmp>/<uuid>/file
             // and upload <testtmp>. It means the whole directory
             // <uuid> will be uploaded.
- 
+
             // Create test temp dir
             string tempDirPath = GetTemporaryDirectory();
-            
+
             // Create dir to be pushed
             string targetDirName = Guid.NewGuid().ToString();
             string targetDirPath = Path.Combine(tempDirPath, targetDirName);
             Directory.CreateDirectory(targetDirPath);
 
             // Create a file in that dir
-            createFile(targetDirPath, "file");            
+            createFile(targetDirPath, "file");
 
             string remoteBaseDir = Guid.NewGuid().ToString();
             try
@@ -169,14 +179,14 @@ namespace Tests
 
             // Pull the just uploaded files
             string file = Path.GetTempFileName();
-            Assert.IsTrue(sc.PullFile("GLOBALSPACE", 
+            Assert.IsTrue(sc.PullFile("GLOBALSPACE",
                 remoteBaseDir + "/" + targetDirName + "/file", file));
-            
+
             // Check the downloaded file now exists
             Assert.IsTrue(File.Exists(file));
 
             // Delete the downloaded file
-            File.Delete(file); 
+            File.Delete(file);
 
             // Delete the remote dir
             Assert.IsTrue(sc.DeleteFile("GLOBALSPACE", remoteBaseDir));
@@ -205,7 +215,7 @@ namespace Tests
             {
                 sc.PushDirectory("GLOBALSPACE", "/../../", tempDirPath, "*");
             }
-            finally 
+            finally
             {
                 Directory.Delete(tempDirPath, true);
             }
@@ -215,7 +225,7 @@ namespace Tests
         public void SubmitXml()
         {
             string jobname = "script_task_with_result";
-            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            JobIdData jid = sc.SubmitXml(GetWorkflowPath(jobname));
             try
             {
                 Assert.AreNotEqual<long>(0, jid.Id, "After submission the job id is invalid!");
@@ -231,12 +241,108 @@ namespace Tests
         [TestMethod]
         public void SubmitFromUrl()
         {
-            string jobname = "Pre-Post-Clean Scripts";
-            JobId jid = sc.SubmitFromUrl(schedulerUrl + "/catalog/buckets/1000/resources/Pre-Post-Clean+Scripts/raw");
+            string jobname = "Pre_Post_Clean_Scripts";
+            JobIdData jid = sc.SubmitFromUrl(schedulerUrl + "/catalog/buckets/basic-examples/resources/Pre_Post_Clean_Scripts/raw");
             try
             {
                 Assert.AreNotEqual<long>(0, jid.Id, "After submission the job id is invalid!");
                 Assert.AreEqual<string>(jobname, jid.ReadableName, "After submission the job name is invalid!");
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
+        }
+
+        private TaskFlowJob createHelloWorldJob()
+        {
+            TaskFlowJob job = new TaskFlowJob();
+            job.Name = "Hello World Job";
+            ScriptTask task = new ScriptTask();
+            task.Name = "hello_task";
+            TaskScript script = new TaskScript(new SimpleScript("println 'Hello World'; result = 'OK'", "groovy", new string[0]));
+            task.Script = script;
+            task.PreciousResult = true;
+            job.addTask(task);
+            return job;
+        }
+
+        private TaskFlowJob createGetVarJob(string varName, string giName)
+        {
+            TaskFlowJob job = new TaskFlowJob();
+            job.Name = "Get Var Job";
+            ScriptTask task = new ScriptTask();
+            task.Name = "get_var_task";
+            TaskScript script = new TaskScript(new SimpleScript("result = variables.get('" + varName + "')", "groovy", new string[0]));
+            task.Script = script;
+            task.PreciousResult = true;
+            job.addTask(task);
+            ScriptTask task2 = new ScriptTask();
+            task2.Name = "get_gi_task";
+            TaskScript script2 = new TaskScript(new SimpleScript("result = genericInformation.get('" + giName + "')", "groovy", new string[0]));
+            task2.Script = script2;
+            task2.PreciousResult = true;
+            job.addTask(task2);
+            return job;
+        }
+
+        [TestMethod]
+        public void SubmitJobAndWait()
+        {
+            TaskFlowJob job = createHelloWorldJob();
+            JobIdData jid = sc.SubmitJob(job);
+            try
+            {
+                Assert.AreNotEqual<long>(0, jid.Id, "After submission the job id is invalid!");
+                Assert.AreEqual<string>("Hello World Job", jid.ReadableName, "After submission the job name is invalid!");
+
+                JobResult jr = sc.WaitForJobResult(jid, 30000);
+                Assert.IsNotNull(jr);
+                TaskResult tr = jr.Tasks["hello_task"];
+                Assert.IsNotNull(tr);
+                Assert.IsNotNull(tr.PropagatedVariables);
+                Assert.AreEqual<string>("Hello World Job", tr.PropagatedVariables["PA_JOB_NAME"]);
+                Assert.AreEqual("OK", tr.Value);
+                TaskResult tr2 = jr.PreciousTasks["hello_task"];
+                Assert.IsNotNull(tr2);
+                Assert.AreEqual("OK", tr2.Value);
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
+        }
+
+        [TestMethod]
+        public void SubmitJobExtraVarsAndGenericInfoAndWait()
+        {
+            TaskFlowJob job = createGetVarJob("my_var", "my_gi");
+            Dictionary<string, string> variables = new Dictionary<string, string>()
+            {
+                {  "my_var", "my_value" }
+            };
+            Dictionary<string, string> genericInfo = new Dictionary<string, string>()
+            {
+                {  "my_gi", "my_gi_value" }
+            };
+            JobIdData jid = sc.SubmitJob(job, variables, genericInfo);
+            try
+            {
+                Assert.AreNotEqual<long>(0, jid.Id, "After submission the job id is invalid!");
+                Assert.AreEqual<string>("Get Var Job", jid.ReadableName, "After submission the job name is invalid!");
+
+                JobResult jr = sc.WaitForJobResult(jid, 30000);
+                Assert.IsNotNull(jr);
+                TaskResult tr = jr.Tasks["get_var_task"];
+                Assert.IsNotNull(tr);
+                Assert.IsNotNull(tr.PropagatedVariables);
+                Assert.AreEqual<string>("Get Var Job", tr.PropagatedVariables["PA_JOB_NAME"]);
+                Assert.AreEqual("my_value", tr.Value);
+                TaskResult tr2 = jr.Tasks["get_gi_task"];
+                Assert.IsNotNull(tr2);
+                Assert.AreEqual("my_gi_value", tr2.Value);
             }
             finally
             {
@@ -269,7 +375,7 @@ namespace Tests
         public void PauseResumeJob()
         {
             string jobname = "LoopJob";
-            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            JobIdData jid = sc.SubmitXml(GetWorkflowPath(jobname));
             Thread.Sleep(1000);
             try
             {
@@ -290,7 +396,7 @@ namespace Tests
         public void PauseJob_UnknwonJobException()
         {
             // Check unknown jobid
-            JobId invalidJid = new JobId();
+            JobIdData invalidJid = new JobIdData();
             sc.PauseJob(invalidJid);
         }
 
@@ -298,7 +404,7 @@ namespace Tests
         public void WaitForJobResult()
         {
             string jobname = "script_task_with_result";
-            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            JobIdData jid = sc.SubmitXml(GetWorkflowPath(jobname));
             try
             {
                 JobResult jr = sc.WaitForJobResult(jid, 30000);
@@ -320,7 +426,7 @@ namespace Tests
         public void WaitForJobResult_TimeoutException()
         {
             string jobname = "one_minute_script_task";
-            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            JobIdData jid = sc.SubmitXml(GetWorkflowPath(jobname));
             try
             {
                 sc.WaitForJobResult(jid, 1000);
@@ -336,7 +442,7 @@ namespace Tests
         [ExpectedException(typeof(UnknownJobException))]
         public void WaitForJobResult_UnknownJobException()
         {
-            JobId invalidJid = new JobId();
+            JobIdData invalidJid = new JobIdData();
             sc.WaitForJobResult(invalidJid, 1000);
         }
 
@@ -346,10 +452,10 @@ namespace Tests
             string jobName = "stask_result_out_err";
             string taskName = "simple_task";
             string expectedResult = "hello";
-            JobId jid = sc.SubmitXml(GetWorkflowPath(jobName));
+            JobIdData jid = sc.SubmitXml(GetWorkflowPath(jobName));
             try
             {
-                IDictionary<string,string> jr = sc.WaitForJobResultValue(jid, 30000);
+                IDictionary<string, string> jr = sc.WaitForJobResultValue(jid, 30000);
                 Assert.IsNotNull(jr);
                 string value = jr[taskName];
                 Assert.AreEqual<string>(expectedResult, value, "Invalid result value!");
@@ -374,7 +480,7 @@ namespace Tests
         public void WaitForJobResultValue_TimeoutException()
         {
             string jobname = "one_minute_script_task";
-            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            JobIdData jid = sc.SubmitXml(GetWorkflowPath(jobname));
             try
             {
                 sc.WaitForJobResultValue(jid, 1000);
@@ -390,7 +496,7 @@ namespace Tests
         [ExpectedException(typeof(UnknownJobException))]
         public void WaitForJobResultValue_UnknownJobException()
         {
-            JobId invalidJid = new JobId();
+            JobIdData invalidJid = new JobIdData();
             sc.WaitForJobResultValue(invalidJid, 1000);
         }
 
@@ -398,7 +504,7 @@ namespace Tests
         [ExpectedException(typeof(UnknownJobException))]
         public void GetJobState_UnknownJobException()
         {
-            JobId invalidJid = new JobId();
+            JobIdData invalidJid = new JobIdData();
             sc.GetJobState(invalidJid);
         }
 
@@ -406,9 +512,9 @@ namespace Tests
         public void GetJobTaskState()
         {
             string jobname = "one_minute_script_task";
-            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            JobIdData jid = sc.SubmitXml(GetWorkflowPath(jobname));
             try
-            { 
+            {
                 Thread.Sleep(1000);
                 JobState jobState = sc.GetJobState(jid);
                 Assert.AreEqual<JobStatus>(JobStatus.RUNNING, jobState.JobInfo.Status);
@@ -428,12 +534,12 @@ namespace Tests
         public void ChangeJobPriority()
         {
             string jobname = "one_minute_script_task";
-            JobId jid = sc.SubmitXml(GetWorkflowPath(jobname));
+            JobIdData jid = sc.SubmitXml(GetWorkflowPath(jobname));
             try
             {
-                sc.ChangeJobPriority(jid, JobPriority.IDLE);
+                sc.ChangeJobPriority(jid, JobPriorityData.IDLE);
                 JobState jobState = sc.GetJobState(jid);
-                Assert.AreEqual<JobPriority>(JobPriority.IDLE, jobState.Priority, "Invalid job priority, the ChangeJobPriority method has no effect!");
+                Assert.AreEqual<JobPriorityData>(JobPriorityData.IDLE, jobState.Priority, "Invalid job priority, the ChangeJobPriority method has no effect!");
             }
             finally
             {
@@ -454,12 +560,13 @@ namespace Tests
             return tempDirectory;
         }
 
-        private static string createFile(string targetDir, string fileName) {
+        private static string createFile(string targetDir, string fileName)
+        {
             string filePath = Path.Combine(targetDir, fileName);
             using (File.Create(filePath)) { }
             return filePath;
         }
-        
+
 
     }
 }

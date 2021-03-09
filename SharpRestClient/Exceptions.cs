@@ -90,8 +90,8 @@ namespace SharpRestClient.Exceptions
         public UnknownTaskException() : base() { }
         public UnknownTaskException(string message) : base(message) { }
         public UnknownTaskException(string message, Exception innerException) : base(message, innerException) { }
-        public UnknownTaskException(string taskName, JobId jobId) : base("The task " + taskName + " of job " + jobId + " is unknown!") { }
-        public UnknownTaskException(TaskId taskId, JobId jobId) : base("The task " + taskId + " of job " + jobId + " is unknown!") { }
+        public UnknownTaskException(string taskName, JobIdData jobId) : base("The task " + taskName + " of job " + jobId + " is unknown!") { }
+        public UnknownTaskException(TaskIdData taskId, JobIdData jobId) : base("The task " + taskId + " of job " + jobId + " is unknown!") { }
     }
 
     /// <summary>
@@ -102,7 +102,7 @@ namespace SharpRestClient.Exceptions
         public UnknownJobException() : base() { }
         public UnknownJobException(string message) : base(message) { }
         public UnknownJobException(string message, Exception innerException) : base(message, innerException) { }
-        public UnknownJobException(JobId jobId) : base("The job " + jobId + " does not exists!") { }
+        public UnknownJobException(JobIdData jobId) : base("The job " + jobId + " does not exists!") { }
     }
 
     /// <summary>

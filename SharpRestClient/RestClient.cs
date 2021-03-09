@@ -11,6 +11,8 @@ using SharpRestClient.Exceptions;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
+using org.ow2.proactive.scheduler.common.job;
+using org.ow2.proactive.scheduler.common.job.factories;
 
 namespace SharpRestClient
 {
@@ -290,7 +292,7 @@ namespace SharpRestClient
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         /// <exception cref="JobAlreadyFinishedException">if you want to pause an already finished job</exception>
-        public bool PauseJob(JobId jobId)
+        public bool PauseJob(JobIdData jobId)
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/pause", Method.PUT);
@@ -310,7 +312,7 @@ namespace SharpRestClient
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         /// <exception cref="JobAlreadyFinishedException">if you want to resume an already finished job</exception>
-        public bool ResumeJob(JobId jobId)
+        public bool ResumeJob(JobIdData jobId)
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/resume", Method.PUT);
@@ -329,7 +331,7 @@ namespace SharpRestClient
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public bool KillJob(JobId jobId)
+        public bool KillJob(JobIdData jobId)
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/kill", Method.PUT);
@@ -348,7 +350,7 @@ namespace SharpRestClient
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public bool RemoveJob(JobId jobId)
+        public bool RemoveJob(JobIdData jobId)
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}", Method.DELETE);
@@ -370,7 +372,7 @@ namespace SharpRestClient
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         /// <exception cref="JobAlreadyFinishedException">if you want to change the priority on a finished job</exception>
-        public void ChangeJobPriority(JobId jobId, JobPriority priority)
+        public void ChangeJobPriority(JobIdData jobId, JobPriorityData priority)
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/priority/byvalue/{value}", Method.PUT);
@@ -386,84 +388,107 @@ namespace SharpRestClient
         /// <summary>
         /// Submits a xml workflow accessible from the local file system       
         /// </summary>
-        /// <param name="filePath">path to the xml workflow on the local file system</param>
+        /// <param name="job">Task Flow job to submit</param>
+        /// <param name="variables">a dictionary of job variables to configure the job execution</param>
+        /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
         /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
-        public JobId SubmitXml(string filePath)
+        public JobIdData SubmitJob(TaskFlowJob job, IDictionary<string, string> variables = null, IDictionary<string, string> genericInfo = null, bool printXml = false)
         {
-            return _SubmitXml("/scheduler/submit", filePath);
+            Job2XMLTransformer transformer = new Job2XMLTransformer();
+            string jobString = transformer.jobToxmlString(job);
+            if (printXml)
+            {
+                Console.WriteLine(jobString);
+            }            
+            string url = getSubmitUrlWithVariables("/scheduler/submit", variables);
+            return _SubmitString(url, jobString, genericInfo);
         }
+
 
         /// <summary>
         /// Submits a xml workflow accessible from the local file system
         /// </summary>
         /// <param name="filePath">path to the xml workflow on the local file system</param>
         /// <param name="variables">a dictionary of job variables to configure the job execution</param>
+        /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
         /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
-        public JobId SubmitXml(string filePath, Dictionary<string,string> variables) {
-            String url = null;
-            if (variables == null || variables.Count == 0)
-            {
-                url = "/scheduler/submit";
-            }
-            else
-            {
-                StringBuilder buf = new StringBuilder("/scheduler/submit");
-                foreach (KeyValuePair<string, string> keyValue in variables)
-                {
-                    buf.Append(';').Append(HttpUtility.UrlEncode(keyValue.Key)).Append("=").Append(HttpUtility.UrlEncode(keyValue.Value));
-                }
-                url = buf.ToString();
-            }
-            return _SubmitXml(url, filePath);
+        public JobIdData SubmitXml(string filePath, IDictionary<string,string> variables = null, IDictionary<string,string> genericInfo = null) {
+            string url = getSubmitUrlWithVariables("/scheduler/submit", variables);          
+            return _SubmitXml(url, filePath, genericInfo);
         }
 
-
-        /// <summary>
-        /// Submits a xml workflow accessible from the given url
-        /// </summary>
-        /// <param name="workflowUrl">url used to access the xml workflow</param>
-        /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
-        /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
-        public JobId SubmitFromUrl(string workflowUrl)
-        {
-            return SubmitFromUrl(workflowUrl, null);
-        }
 
         /// <summary>
         /// Submits a xml workflow accessible from the given url
         /// </summary>
         /// <param name="workflowUrl">url used to access the xml workflow</param>
         /// <param name="variables">a dictionary of job variables to configure the job execution</param>
+        /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
         /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
-        public JobId SubmitFromUrl(string workflowUrl, Dictionary<string, string> variables)
+        public JobIdData SubmitFromUrl(string workflowUrl, IDictionary<string, string> variables = null, IDictionary<string, string> genericInfo = null)
         {
-            String submissionUrl = null;
+            string submissionUrl = getSubmitUrlWithVariables("/scheduler/jobs", variables); ;                   
+            return _SubmitUrl(submissionUrl, workflowUrl, genericInfo);
+        }
+
+        private string getSubmitUrlWithVariables(string baseUrl, IDictionary<string, string> variables)
+        {
+            String url = null;
             if (variables == null || variables.Count == 0)
             {
-                submissionUrl = "/scheduler/jobs";
+                url = baseUrl;
             }
             else
             {
-                StringBuilder buf = new StringBuilder("/scheduler/jobs");
+                StringBuilder buf = new StringBuilder(baseUrl);
                 foreach (KeyValuePair<string, string> keyValue in variables)
                 {
                     buf.Append(';').Append(HttpUtility.UrlEncode(keyValue.Key)).Append("=").Append(HttpUtility.UrlEncode(keyValue.Value));
                 }
-                submissionUrl = buf.ToString();
-            }        
-            return _SubmitUrl(submissionUrl, workflowUrl);
+                url = buf.ToString();
+            }
+            return url;
         }
 
-        private JobId _SubmitXml(string url, string filePath) 
+        private JobIdData _SubmitString(string url, string jobString, IDictionary<string, string> genericInfo = null)
         {
             renewSession();
             RestRequest request = new RestRequest(url, Method.POST);
             request.AddHeader("Content-Type", "multipart/form-data");
             request.AddHeader("Accept", "application/json");
+            if (genericInfo != null && genericInfo.Count > 0)
+            {
+                foreach (KeyValuePair<string, string> pair in genericInfo)
+                {
+                    request.AddParameter(pair.Key, pair.Value, ParameterType.QueryString);
+                }
+            }
 
+            Encoding encoding = Encoding.UTF8;
+
+            request.AddFile("file", encoding.GetBytes(jobString), "job", "application/xml");
+
+            var response = _restClient.Execute(request);
+
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<JobIdData>(response.Content);
+        }
+
+        private JobIdData _SubmitXml(string url, string filePath, IDictionary<string, string> genericInfo)
+        {
+            renewSession();
+            RestRequest request = new RestRequest(url, Method.POST);
+            request.AddHeader("Content-Type", "multipart/form-data");
+            request.AddHeader("Accept", "application/json");
+            if (genericInfo != null && genericInfo.Count > 0) {
+                foreach (KeyValuePair<string, string> pair in genericInfo) {
+                    request.AddParameter(pair.Key, pair.Value, ParameterType.QueryString);
+                }
+            }
+                    
             string name = Path.GetFileName(filePath);
             using (var xml = new FileStream(filePath, FileMode.Open))
             {
@@ -473,21 +498,28 @@ namespace SharpRestClient
             var response = _restClient.Execute(request);
 
             ThrowIfNotOK(response);
-            return JsonConvert.DeserializeObject<JobId>(response.Content);
+            return JsonConvert.DeserializeObject<JobIdData>(response.Content);
         }
 
-        private JobId _SubmitUrl(string submissionUrl, string workflowUrl)
+        private JobIdData _SubmitUrl(string submissionUrl, string workflowUrl, IDictionary<string, string> genericInfo)
         {
             renewSession();
             RestRequest request = new RestRequest(submissionUrl, Method.POST);
-            request.AddHeader("Content-Type", "multipart/form-data");
+            request.AddHeader("Content-Type", "application/json");
             request.AddHeader("Accept", "application/json");
-            request.AddHeader("link", workflowUrl);               
+            request.AddHeader("link", workflowUrl);
+            if (genericInfo != null && genericInfo.Count > 0)
+            {
+                foreach (KeyValuePair<string, string> pair in genericInfo)
+                {
+                    request.AddParameter(pair.Key, pair.Value, ParameterType.QueryString);
+                }
+            }
 
             var response = _restClient.Execute(request);
 
             ThrowIfNotOK(response);
-            return JsonConvert.DeserializeObject<JobId>(response.Content);
+            return JsonConvert.DeserializeObject<JobIdData>(response.Content);
         }
 
         /// <summary>
@@ -497,7 +529,7 @@ namespace SharpRestClient
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public JobState GetJobState(JobId jobId)
+        public JobState GetJobState(JobIdData jobId)
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}", Method.GET);
@@ -518,7 +550,7 @@ namespace SharpRestClient
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="UnknownTaskException">if the task does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public TaskState GetTaskState(JobId jobId, string taskName)
+        public TaskState GetTaskState(JobIdData jobId, string taskName)
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskName}", Method.GET);
@@ -540,7 +572,7 @@ namespace SharpRestClient
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public bool isJobAlive(JobId jobId)
+        public bool isJobAlive(JobIdData jobId)
         {
             return this.GetJobState(jobId).JobInfo.IsAlive();
         }
@@ -552,7 +584,7 @@ namespace SharpRestClient
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public JobResult GetJobResult(JobId jobId)
+        public JobResult GetJobResult(JobIdData jobId)
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/result", Method.GET);
@@ -572,7 +604,7 @@ namespace SharpRestClient
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public IDictionary<string, string> GetJobResultValue(JobId jobId)
+        public IDictionary<string, string> GetJobResultValue(JobIdData jobId)
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/result/value", Method.GET);
@@ -594,7 +626,7 @@ namespace SharpRestClient
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public JobResult WaitForJobResult(JobId jobId, int timeoutInMs)
+        public JobResult WaitForJobResult(JobIdData jobId, int timeoutInMs)
         {
             renewSession();
             var cts = new CancellationTokenSource(timeoutInMs);
@@ -631,7 +663,7 @@ namespace SharpRestClient
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public IDictionary<string,string> WaitForJobResultValue(JobId jobId, int timeoutInMs)
+        public IDictionary<string,string> WaitForJobResultValue(JobIdData jobId, int timeoutInMs)
         {
             renewSession();
             var cts = new CancellationTokenSource(timeoutInMs);
@@ -660,7 +692,7 @@ namespace SharpRestClient
             return tr.Result;
         }
 
-        private async Task<JobResult> WaitForJobResultAsync(JobId jobId, CancellationToken cancelToken)
+        private async Task<JobResult> WaitForJobResultAsync(JobIdData jobId, CancellationToken cancelToken)
         {
             renewSession();
             JobState state = GetJobState(jobId);
@@ -675,7 +707,7 @@ namespace SharpRestClient
             }
         }
 
-        private async Task<IDictionary<string, string>> WaitForJobResultValueAsync(JobId jobId, CancellationToken cancelToken)
+        private async Task<IDictionary<string, string>> WaitForJobResultValueAsync(JobIdData jobId, CancellationToken cancelToken)
         {
             renewSession();
             JobState state = GetJobState(jobId);
@@ -698,7 +730,7 @@ namespace SharpRestClient
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public TaskResult GetTaskResult(JobId jobId, string taskName) 
+        public TaskResult GetTaskResult(JobIdData jobId, string taskName) 
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result", Method.GET);
@@ -727,14 +759,14 @@ namespace SharpRestClient
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public string GetAllTaskLogs(JobId jobId, string taskName)
+        public string GetAllTaskLogs(JobIdData jobId, string taskName)
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/all", Method.GET);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskname", taskName);
             request.AddHeader("Accept-Encoding", "gzip");
-            request.AddHeader("Accept", "application/json");
+            request.AddHeader("Accept", "text/plain");
 
             IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
@@ -749,14 +781,14 @@ namespace SharpRestClient
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public string GetStdOutTaskLogs(JobId jobId, string taskName)
+        public string GetStdOutTaskLogs(JobIdData jobId, string taskName)
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/out", Method.GET);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskname", taskName);
             request.AddHeader("Accept-Encoding", "gzip");
-            request.AddHeader("Accept", "application/json");
+            request.AddHeader("Accept", "text/plain");
 
             IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
@@ -771,14 +803,14 @@ namespace SharpRestClient
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public string GetStdErrTaskLogs(JobId jobId, string taskName)
+        public string GetStdErrTaskLogs(JobIdData jobId, string taskName)
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/err", Method.GET);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskname", taskName);
             request.AddHeader("Accept-Encoding", "gzip");
-            request.AddHeader("Accept", "application/json");
+            request.AddHeader("Accept", "text/plain");
 
             IRestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
@@ -793,7 +825,7 @@ namespace SharpRestClient
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public string GetTaskResultValue(JobId jobId, string taskName)
+        public string GetTaskResultValue(JobIdData jobId, string taskName)
         {
             renewSession();
             RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/value", Method.GET);

@@ -57,7 +57,7 @@ namespace SharpRestClient
     /// Priority of a job
     /// </summary>
     [JsonConverter(typeof(StringEnumConverter))]
-    public enum JobPriority
+    public enum JobPriorityData
     {
         /// <summary>Lowest priority</summary>
         [EnumMember(Value = "Idle")]
@@ -233,7 +233,7 @@ namespace SharpRestClient
     /// <summary>
     /// A task's id
     /// </summary>
-    public sealed class TaskId
+    public sealed class TaskIdData
     {
         /// <summary>
         /// the id itself
@@ -257,7 +257,7 @@ namespace SharpRestClient
     /// <summary>
     /// A job's id
     /// </summary>
-    public sealed class JobId
+    public sealed class JobIdData
     {
         /// <summary>
         /// the id itself
@@ -287,12 +287,12 @@ namespace SharpRestClient
         /// id of the Job containing this Task 
         /// </summary>
         [JsonProperty("jobId")]
-        public JobId JobId { get; set; }
+        public JobIdData JobId { get; set; }
         /// <summary>
         /// id of this Task 
         /// </summary>
         [JsonProperty("taskId")]
-        public TaskId TaskId { get; set; }
+        public TaskIdData TaskId { get; set; }
         /// <summary>
         /// system time when this Task was started 
         /// </summary>
@@ -346,6 +346,18 @@ namespace SharpRestClient
     }
 
     /// <summary>
+    /// Parallel Environment info
+    /// </summary>
+    public sealed class ParallelEnvironmentData
+    {
+        /// <summary>
+        /// number of nodes used to execute the task
+        /// </summary>
+        [JsonProperty("nodesNumber")]
+        public long NodesNumber { get; set; }
+    }
+
+    /// <summary>
     /// the Task current state  
     /// </summary>
     public sealed class TaskState
@@ -395,8 +407,9 @@ namespace SharpRestClient
         /// </summary>
         [JsonProperty("taskInfo")]
         public TaskInfo TaskInfo { get; set; }
-        //[JsonProperty("parallelEnvironment")]
-        //public string ParallelEnvironment { get; set; }
+
+        [JsonProperty("parallelEnvironment")]
+        public ParallelEnvironmentData ParallelEnvironment { get; set; }
     }
 
     /// <summary>
@@ -408,7 +421,7 @@ namespace SharpRestClient
         /// id of this Job 
         /// </summary>
         [JsonProperty("id")]
-        public JobId JobId { get; set; }
+        public JobIdData JobId { get; set; }
         /// <summary>
         /// This job's starting time (one task at least started) 
         /// </summary>
@@ -488,7 +501,7 @@ namespace SharpRestClient
         /// Priority attached to this job.
         /// </summary>
         [JsonProperty("priority")]
-        public JobPriority Priority { get; set; }
+        public JobPriorityData Priority { get; set; }
         /// <summary>
         /// Owner of this job.
         /// </summary>
@@ -518,7 +531,7 @@ namespace SharpRestClient
         /// The priority of this job.
         /// </summary>
         [JsonProperty("priority")]
-        public JobPriority Priority { get; set; }
+        public JobPriorityData Priority { get; set; }
         /// <summary>
         /// The owner of this job.
         /// </summary>
@@ -565,7 +578,7 @@ namespace SharpRestClient
         /// The task id
         /// </summary>
         [JsonProperty("taskId")]
-        public TaskId TaskId { get; set; }
+        public TaskIdData TaskId { get; set; }
         /// <summary>
         /// The task result in composed Java Serialization / Base64 format. Unless the result is a raw byte array, this cannot be used in C# due to java serialization.
         /// </summary>
@@ -622,7 +635,7 @@ namespace SharpRestClient
         /// The job id
         /// </summary>
         [JsonProperty("id")]
-        public JobId JobId { get; set; }
+        public JobIdData JobId { get; set; }
         /// <summary>
         /// The job information
         /// </summary>
@@ -643,6 +656,12 @@ namespace SharpRestClient
         /// </summary>
         [JsonProperty("exceptionResults")]
         public IDictionary<string, TaskResult> ExceptionTasks { get; set; }
+        /// <summary>
+        /// A dictionary containing the job resultMap.
+        /// </summary>
+        [JsonProperty("resultMap")]
+        public IDictionary<string, string> ResultMap { get; set; }
+
         public override string ToString()
         {
             return string.Format("Job#{0} have {1} tasks results", JobId.Id, Tasks.Count);

@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -9,8 +9,9 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SharpRestClient</RootNamespace>
     <AssemblyName>SharpRestClient</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -31,6 +32,28 @@
     <DocumentationFile>bin\Release\SharpRestClient.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=5.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.5.0.0\lib\net461\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Build.Framework" />
+    <Reference Include="Microsoft.Extensions.DependencyInjection, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.DependencyInjection.5.0.0\lib\net461\Microsoft.Extensions.DependencyInjection.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.DependencyInjection.Abstractions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.DependencyInjection.Abstractions.5.0.0\lib\net461\Microsoft.Extensions.DependencyInjection.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.Logging.5.0.0\lib\net461\Microsoft.Extensions.Logging.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.Logging.Abstractions.5.0.0\lib\net461\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Options, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.Options.5.0.0\lib\net461\Microsoft.Extensions.Options.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Primitives, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.Primitives.5.0.0\lib\net461\Microsoft.Extensions.Primitives.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json">
       <HintPath>..\packages\Newtonsoft.Json.6.0.5\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
@@ -41,8 +64,30 @@
       <HintPath>..\packages\RestSharp.104.4.0\lib\net4\RestSharp.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+    </Reference>
     <Reference Include="System.Core" />
+    <Reference Include="System.Diagnostics.DiagnosticSource, Version=5.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Diagnostics.DiagnosticSource.5.0.0\lib\net46\System.Diagnostics.DiagnosticSource.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Memory, Version=4.0.1.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Memory.4.5.4\lib\net461\System.Memory.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.5.0.0\lib\net45\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
     <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Threading.Tasks.Extensions, Version=4.2.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Threading.Tasks.Extensions.4.5.4\lib\net461\System.Threading.Tasks.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ValueTuple, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.ValueTuple.4.5.0\lib\net461\System.ValueTuple.dll</HintPath>
+    </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -51,15 +96,164 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CommonAPI.cs" />
+    <Compile Include="DateTimeHelper.cs" />
+    <Compile Include="HashMapHelper.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\authentication\ConnectionInfo.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\authentication\UserData.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\db\DatabaseManagerException.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\db\types\BigString.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\scripting\ForkEnvironmentScript.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\scripting\ForkEnvironmentScriptResult.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\scripting\helper\forkenvironment\ForkEnvironmentScriptResultExtractor.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\scripting\helper\selection\Condition.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\scripting\helper\selection\Conditions.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\scripting\InvalidScriptException.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\scripting\Script.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\scripting\ScriptException.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\scripting\ScriptResult.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\scripting\SelectionScript.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\scripting\SimpleScript.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\scripting\TaskScript.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\topology\descriptor\ArbitraryTopologyDescriptor.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\topology\descriptor\BestProximityDescriptor.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\topology\descriptor\DifferentHostsExclusiveDescriptor.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\topology\descriptor\DistanceFunction.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\topology\descriptor\MultipleHostsExclusiveDescriptor.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\topology\descriptor\SingleHostDescriptor.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\topology\descriptor\SingleHostExclusiveDescriptor.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\topology\descriptor\ThresholdProximityDescriptor.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\topology\descriptor\TopologyDescriptor.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\utils\ObjectArrayFormatter.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\utils\OperatingSystem.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\utils\OperatingSystemFamily.cs" />
+    <Compile Include="common\common-api\org\ow2\proactive\utils\Tools.cs" />
+    <Compile Include="programming-extensions\programming-extension-dataspaces-common\org\objectweb\proactive\extensions\dataspaces\api\FileSelector.cs" />
+    <Compile Include="programming-extensions\programming-extension-dataspaces-common\org\objectweb\proactive\extensions\dataspaces\api\FileType.cs" />
+    <Compile Include="programming-extensions\programming-extension-dataspaces-common\org\objectweb\proactive\extensions\dataspaces\vfs\selector\FileSelector.cs" />
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+    <Compile Include="StringHelper.cs" />
     <Compile Include="Exceptions.cs" />
     <Compile Include="JsonSerializer.cs" />
     <Compile Include="ResourceManagerAPI.cs" />
     <Compile Include="RestClient.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SchedulerAPI.cs" />
+    <Compile Include="CollectionHelper.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\db\SortOrder.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\db\SortParameter.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\AccessRightException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\AlreadyConnectedException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\ConnectionException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\DependenceFailedException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\ExecutableCreationException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\InternalException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\InternalSchedulerException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\JobAlreadyFinishedException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\JobCreationException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\JobValidationException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\MaxJobIdReachedException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\NotConnectedException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\PermissionException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\SchedulerConfigurationException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\SchedulerException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\SubmissionClosedException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\TaskAbortedException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\TaskCouldNotRestartException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\TaskCouldNotStartException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\TaskPreemptedException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\TaskRestartedException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\TaskSkippedException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\UnknownJobException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\UnknownTaskException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\UserException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\exception\WalltimeExceededException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\JobFilterCriteria.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\JobSortParameter.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\job\factories\FlatJobFactory.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\job\factories\Job2XMLTransformer.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\job\factories\Schemas.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\job\factories\XMLAttributes.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\job\factories\XMLTags.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\job\Job.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\job\JobId.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\job\JobPriority.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\job\JobType.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\job\JobVariable.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\job\TaskFlowJob.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\job\UserIdentification.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\SchedulerConstants.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\SchedulerSpaceInterface.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\SortSpecifierContainer.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\TaskSortParameter.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\CommonAttribute.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\dataspaces\FileSystemException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\dataspaces\InputAccessMode.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\dataspaces\InputSelector.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\dataspaces\LocalSpace.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\dataspaces\OutputAccessMode.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\dataspaces\OutputSelector.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\dataspaces\RemoteSpace.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\flow\FlowAction.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\flow\FlowActionType.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\flow\FlowBlock.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\flow\FlowScript.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\ForkEnvironment.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\NativeTask.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\OnTaskError.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\ParallelEnvironment.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\PropertyModifier.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\RestartMode.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\ScriptTask.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\Task.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\TaskId.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\TaskProgress.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\TaskVariable.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\UpdatableProperties.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\util\BooleanWrapper.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\util\ByteArrayWrapper.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\util\IntegerWrapper.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\task\util\LongWrapper.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\ThirdPartyCredentials.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\usage\JobUsage.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\usage\SchedulerUsage.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\usage\TaskUsage.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\util\LogFormatter.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\util\logforwarder\LogForwardingException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\util\PageBoundaries.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\util\Pagination.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\util\RegexpMatcher.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\util\TaskLoggerRelativePathGenerator.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\util\text\StrLookup.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\util\text\StrMatcher.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\util\text\StrSubstitutor.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\util\text\StrTokenizer.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\common\util\VariableSubstitutor.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\job\JobIdImpl.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\job\SchedulerUserInfo.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\synchronization\ClosureEvaluationException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\synchronization\CompilationException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\synchronization\InvalidChannelException.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\task\SchedulerVars.cs" />
+    <Compile Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\task\TaskIdImpl.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="packages.config" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="common\common-api\org\ow2\proactive\core\" />
+    <Folder Include="common\common-api\org\ow2\proactive\http\" />
+    <Folder Include="common\common-api\org\ow2\proactive\scripting\helper\progress\" />
+    <Folder Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\core\properties\" />
+    <Folder Include="scheduler\scheduler-api\org\ow2\proactive\scheduler\signal\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
