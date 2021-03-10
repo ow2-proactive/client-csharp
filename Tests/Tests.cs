@@ -95,6 +95,7 @@ namespace Tests
         [ClassCleanup]
         public static void AfterAll()
         {
+            sc.Disconnect();
             //Console.WriteLine("----------------ClassCleanup---------------");
         }
 
@@ -477,6 +478,9 @@ namespace Tests
                 Assert.IsNotNull(tr);
                 Assert.IsNotNull(tr.PropagatedVariables);
                 Assert.AreEqual<string>(jobname, tr.PropagatedVariables["PA_JOB_NAME"]);
+                Assert.IsNotNull(tr.TaskId);
+                Assert.IsNotNull(tr.TaskLogs.StdOutLogs);
+                Assert.IsNotNull(tr.TaskLogs.StdErrLogs);
             }
             finally
             {
@@ -528,6 +532,7 @@ namespace Tests
                 Assert.IsNotNull(taskResult);
                 Assert.IsTrue(taskResult.TaskLogs.StdOutLogs.Contains("outout"));
                 Assert.IsTrue(taskResult.TaskLogs.StdErrLogs.Contains("errerr"));
+                Assert.IsNotNull(taskResult.TaskId);
 
                 string taskResultValue = sc.GetTaskResultValue(jid, taskName);
                 Assert.AreEqual<string>(expectedResult, taskResultValue, "Invalid task result value!");

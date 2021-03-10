@@ -1,6 +1,5 @@
 ﻿using Newtonsoft.Json;
 using RestSharp;
-using RestSharp.Contrib;
 using System;
 using System.IO;
 using System.Linq;
@@ -13,6 +12,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using org.ow2.proactive.scheduler.common.job;
 using org.ow2.proactive.scheduler.common.job.factories;
+using System.Web;
 
 namespace SharpRestClient
 {
@@ -71,11 +71,23 @@ namespace SharpRestClient
         public static SchedulerClient Connect(string restUrl, string username, string password, string credentialFile, int requestTimeoutInMs)
         {
             byte[] credentialBytes = null;
+            if (!restUrl.Contains("/rest"))
+            {
+                if (restUrl.EndsWith("/"))
+                {
+                    restUrl = restUrl + "rest";
+                }
+                else
+                {
+                    restUrl = restUrl + "/rest";
+                }
+            }
             RestClient restClient = new RestClient(restUrl);
             restClient.Timeout = requestTimeoutInMs;
 
             RestRequest request = new RestRequest("/scheduler/login", Method.POST);
             request.AddHeader("Content-Type", "multipart/form-data");
+            request.AlwaysMultipartFormData = true;
             if (username != null)
             {
                 request.AddParameter("username", username, ParameterType.GetOrPost);
@@ -235,6 +247,19 @@ namespace SharpRestClient
             // if not exception and the response content size is correct then it's ok
             string sessionid = response.Content;
             _restClient.Authenticator = new SIDAuthenticator(sessionid);
+        }
+
+        /// <summary>
+        /// Disconnects from the scheduler server
+        /// </summary>
+        public void Disconnect()
+        {
+            renewSession();
+            RestRequest request = new RestRequest("/scheduler/disconnect", Method.PUT);
+            request.AddHeader("Accept", "*/*");
+
+            IRestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
         }
 
         /// <summary>
@@ -1149,7 +1174,7 @@ namespace SharpRestClient
     /// <summary>
     /// Retains the sessionid required for each rest request
     /// </summary>
-    sealed class SIDAuthenticator : IAuthenticator
+    sealed class SIDAuthenticator : RestSharp.Authenticators.IAuthenticator
     {
         public readonly string sessionid;
 

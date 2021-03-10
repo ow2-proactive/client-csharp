@@ -614,7 +614,9 @@ namespace SharpRestClient
     /// </summary>
     public sealed class TaskLogs
     {
+        [JsonProperty("stdoutLogs")]
         public string StdOutLogs{ get; set; }
+        [JsonProperty("stderrLogs")]
         public string StdErrLogs { get; set; }
         public string AllLogs { get; set; }
     }
@@ -627,7 +629,7 @@ namespace SharpRestClient
         /// <summary>
         /// The task id
         /// </summary>
-        [JsonProperty("taskId")]
+        [JsonProperty("id")]
         public TaskIdData TaskId { get; set; }
         /// <summary>
         /// The task result in composed Java Serialization / Base64 format. Unless the result is a raw byte array, this cannot be used in C# due to java serialization.
