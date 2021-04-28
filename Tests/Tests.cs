@@ -545,6 +545,23 @@ namespace Tests
         }
 
         [TestMethod]
+        public void TestSubmitExample()
+        {
+            TaskFlowJob job = new TaskFlowJob();
+            job.Name = "Hello World Job";
+            ScriptTask task = new ScriptTask();
+            task.Name = "hello_task";
+            TaskScript script = new TaskScript(new SimpleScript("println 'Hello World'; result = 'OK'", "groovy", new string[0]));
+            task.Script = script;
+            job.addTask(task);
+            JobIdData jid = sc.SubmitJob(job);
+            IDictionary<string, string> jr = sc.WaitForJobResultValue(jid, 30000);
+            string taskResult = jr["hello_task"];
+            Console.Out.WriteLine("Result of job " + jid.Id + " = " + taskResult);
+            Assert.AreEqual<string>("OK", taskResult, "Invalid task result value!");
+        }
+
+        [TestMethod]
         [ExpectedException(typeof(TimeoutException))]
         public void WaitForJobResultValue_TimeoutException()
         {

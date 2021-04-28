@@ -5,13 +5,13 @@
     <AssemblyTitle>SharpRestClient</AssemblyTitle>
     <Product>SharpRestClient</Product>
     <Description>.NET client library for ProActive Workflows &amp; Scheduling</Description>
-    <Copyright>Copyright ©  2020</Copyright>
-    <Authors>The ProActive Team</Authors>
+    <Copyright>Copyright © 2020</Copyright>
+    <Authors>ActiveEon</Authors>
     <PackageId>PWSClient</PackageId>
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <PackageTags>ProActive;PWS;ActiveEon</PackageTags>
     <Company>ActiveEon</Company>
-    <Version>11.1.0.2</Version>
+    <Version>11.1.0.3</Version>
 	<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -29,6 +29,10 @@
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="docfx.console" Version="2.57.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="5.0.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="5.0.0" />

@@ -46,29 +46,53 @@ namespace SharpRestClient
         /// <summary>
         /// Connects to a running ProActive Scheduler using login and password
         /// </summary>
+        /// <remarks>
+        /// The connection will create a stateful session, invalid after one hour inactivity.
+        /// Use the Disconnect method to terminate the session earlier and free server resources.
+        /// </remarks>
         /// <param name="restUrl">rest url of the scheduler</param>
         /// <param name="username">login name of the user</param>
         /// <param name="password">password of the user</param>
+        /// <seealso cref="Disconnect"/>
+        /// <example>
+        /// <code>
+        /// SchedulerClient client = SchedulerClient.Connect("http://localhost:8080/rest", "admin", "admin")
+        /// </code>
+        /// </example>
         public static SchedulerClient Connect(string restUrl, string username, string password)
         { return Connect(restUrl, username, password, null, DEFAULT_REQUEST_TIMEOUT_MS); }
 
         /// <summary>
         /// Connects to a running ProActive Scheduler using a credential file
         /// </summary>
+        /// <remarks>
+        /// A credential file can be generated from ProActive Resource Manager portal (Menu Portal > Create credentials)
+        /// Or using the CreateCredentials function.
+        /// 
+        /// The connection will create a stateful session, invalid after one hour inactivity.
+        /// Use the Disconnect method to terminate the session earlier and free server resources.
+        /// </remarks>
         /// <param name="restUrl">rest url of the scheduler</param>
         /// <param name="credentialFile">path to a credential file on the local file system</param>
+        /// <seealso cref="CreateCredentials"/>
+        /// <seealso cref="Disconnect"/>
+        /// <example>
+        /// <code>
+        /// SchedulerClient client = SchedulerClient.Connect("http://localhost:8080/rest", "c:\project\admin.txt")
+        /// </code>
+        /// </example>
         public static SchedulerClient Connect(string restUrl, string credentialFile)
         { return Connect(restUrl, null, null, credentialFile, DEFAULT_REQUEST_TIMEOUT_MS); }
 
         /// <summary>
-        /// Connects to a running ProActive Scheduler
+        /// Connects to a running ProActive Scheduler (internal)
         /// </summary>
         /// <param name="restUrl">rest url of the scheduler</param>
         /// <param name="username">login name of the user</param>
         /// <param name="password">password of the user</param>
         /// <param name="credentialFile">path to a credential file (replace username and password)</param>
         /// <param name="requestTimeoutInMs">timeout in milliseconds for the connection</param>
-        public static SchedulerClient Connect(string restUrl, string username, string password, string credentialFile, int requestTimeoutInMs)
+        private static SchedulerClient Connect(string restUrl, string username, string password, string credentialFile, int requestTimeoutInMs)
         {
             byte[] credentialBytes = null;
             if (!restUrl.Contains("/rest"))
@@ -141,7 +165,16 @@ namespace SharpRestClient
         /// <summary>
         /// Serialize the given object using NetDataContractSerializer
         /// </summary>
+        /// <remarks>
+        /// This is a utility function, it can be used to:
+        /// 1) add serialized objects to TaskFlowJob variables
+        /// 2) inside the TaskFlowJob, add a Powershell ScriptTask to deserialize and use these objects       
+        /// </remarks>
         /// <param name="obj">object to serialize</param>
+        /// <seealso cref="SubmitJob(TaskFlowJob, IDictionary{string, string}, IDictionary{string, string}, bool)"/>
+        /// <seealso cref="TaskFlowJob"/>
+        /// <seealso cref="NetDataContractSerializer"/>
+        /// <seealso cref="org.ow2.proactive.scheduler.common.task.ScriptTask" />
         public static string SerializeWithNetDcs(object obj)
         {
             using (var ms = new MemoryStream())
@@ -159,7 +192,16 @@ namespace SharpRestClient
         /// <summary>
         /// Deserialize the given xml string using NetDataContractSerializer
         /// </summary>
+        /// <remarks>
+        /// This is a utility function, it can be used to:
+        /// 1) inside the TaskFlowJob, add a Powershell ScriptTask to serialize an object and return it as a result
+        /// 2) When the task result is read using the RestClient API, deserialize the object using this function.
+        /// </remarks>
         /// <param name="xml">xml string to deserialize</param>
+        /// <seealso cref="SubmitJob(TaskFlowJob, IDictionary{string, string}, IDictionary{string, string}, bool)"/>
+        /// <seealso cref="GetJobResultValue(JobIdData)"/>
+        /// <seealso cref="TaskFlowJob"/>
+        /// <seealso cref="NetDataContractSerializer"/>
         public static object DeserializeWithNetDcs(string xml)
         {
             using (var ms = new MemoryStream())
@@ -252,6 +294,7 @@ namespace SharpRestClient
         /// <summary>
         /// Disconnects from the scheduler server
         /// </summary>
+        /// <seealso cref="Connect(string, string)"/>
         public void Disconnect()
         {
             renewSession();
@@ -265,10 +308,12 @@ namespace SharpRestClient
         /// <summary>
         /// Create a credential file using the provided username and password
         /// </summary>
+        /// <remarks>Call to this function requires a valid connection</remarks>
         /// <param name="username">login name of the user</param>
         /// <param name="password">password of the user</param>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="PermissionException">if you are not allowed to create credentials</exception>
+        /// <seealso cref="Connect(string, string)"/>
         public byte[] CreateCredentials(string username, string password)
         {
             RestRequest request = new RestRequest("/scheduler/createcredential", Method.POST);
@@ -474,7 +519,7 @@ namespace SharpRestClient
         // todo add stop/start/shutdown ...
 
         /// <summary>
-        /// Submits a xml workflow accessible from the local file system       
+        /// Submits a workflow created using the TaskFlowJob API       
         /// </summary>
         /// <param name="job">Task Flow job to submit</param>
         /// <param name="variables">a dictionary of job variables to configure the job execution</param>
@@ -483,6 +528,23 @@ namespace SharpRestClient
         /// <returns>id of the new job</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
         /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
+        /// <see cref="TaskFlowJob"/>
+        /// <example>
+        /// <code>
+        /// SchedulerClient sc = SchedulerClient.Connect("http://localhost:8080/rest", "admin", "admin")
+        /// TaskFlowJob job = new TaskFlowJob();
+        /// job.Name = "Hello World Job";
+        /// ScriptTask task = new ScriptTask();
+        /// task.Name = "hello_task";
+        /// TaskScript script = new TaskScript(new SimpleScript("println 'Hello World'; result = 'OK'", "groovy", new string[0]));
+        /// task.Script = script;
+        /// job.addTask(task);
+        /// JobIdData jid = sc.SubmitJob(job);
+        /// IDictionary&lt;string, string&gt; jr = sc.WaitForJobResultValue(jid, 30000);
+        /// string taskResult = jr["hello_task"];
+        /// Console.Out.WriteLine("Result of job " + jid.Id + " = " + taskResult);
+        /// </code>
+        /// </example>
         public JobIdData SubmitJob(TaskFlowJob job, IDictionary<string, string> variables = null, IDictionary<string, string> genericInfo = null, bool printXml = false)
         {
             Job2XMLTransformer transformer = new Job2XMLTransformer();
