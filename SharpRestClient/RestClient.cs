@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using SharpRestClient.Exceptions;
+using PWSClient.Exceptions;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
@@ -14,7 +14,7 @@ using org.ow2.proactive.scheduler.common.job;
 using org.ow2.proactive.scheduler.common.job.factories;
 using System.Web;
 
-namespace SharpRestClient
+namespace PWSClient
 {
 
     /// <summary>
@@ -46,41 +46,43 @@ namespace SharpRestClient
         /// <summary>
         /// Connects to a running ProActive Scheduler using login and password
         /// </summary>
+        /// <returns><c>SchedulerClient</c> instance</returns>
         /// <remarks>
         /// The connection will create a stateful session, invalid after one hour inactivity.
         /// Use the Disconnect method to terminate the session earlier and free server resources.
         /// </remarks>
-        /// <param name="restUrl">rest url of the scheduler</param>
-        /// <param name="username">login name of the user</param>
-        /// <param name="password">password of the user</param>
-        /// <seealso cref="Disconnect"/>
         /// <example>
         /// <code>
         /// SchedulerClient client = SchedulerClient.Connect("http://localhost:8080/rest", "admin", "admin")
         /// </code>
-        /// </example>
+        /// </example>        
+        /// <seealso cref="Disconnect"/>
+        /// <param name="restUrl">rest url of the scheduler</param>
+        /// <param name="username">login name of the user</param>
+        /// <param name="password">password of the user</param>
         public static SchedulerClient Connect(string restUrl, string username, string password)
         { return Connect(restUrl, username, password, null, DEFAULT_REQUEST_TIMEOUT_MS); }
 
         /// <summary>
         /// Connects to a running ProActive Scheduler using a credential file
         /// </summary>
+        /// <returns><c>SchedulerClient</c> instance</returns>       
         /// <remarks>
         /// A credential file can be generated from ProActive Resource Manager portal (Menu Portal > Create credentials)
-        /// Or using the CreateCredentials function.
+        /// Or using the <c>CreateCredentials</c> function.
         /// 
         /// The connection will create a stateful session, invalid after one hour inactivity.
         /// Use the Disconnect method to terminate the session earlier and free server resources.
         /// </remarks>
-        /// <param name="restUrl">rest url of the scheduler</param>
-        /// <param name="credentialFile">path to a credential file on the local file system</param>
-        /// <seealso cref="CreateCredentials"/>
-        /// <seealso cref="Disconnect"/>
         /// <example>
         /// <code>
         /// SchedulerClient client = SchedulerClient.Connect("http://localhost:8080/rest", "c:\project\admin.txt")
         /// </code>
-        /// </example>
+        /// </example>       
+        /// <seealso cref="CreateCredentials"/>
+        /// <seealso cref="Disconnect"/>
+        /// <param name="restUrl">rest url of the scheduler</param>
+        /// <param name="credentialFile">path to a credential file on the local file system</param>        
         public static SchedulerClient Connect(string restUrl, string credentialFile)
         { return Connect(restUrl, null, null, credentialFile, DEFAULT_REQUEST_TIMEOUT_MS); }
 
@@ -165,16 +167,17 @@ namespace SharpRestClient
         /// <summary>
         /// Serialize the given object using NetDataContractSerializer
         /// </summary>
+        /// <returns>Serialized object</returns>
         /// <remarks>
         /// This is a utility function, it can be used to:
         /// 1) add serialized objects to TaskFlowJob variables
         /// 2) inside the TaskFlowJob, add a Powershell ScriptTask to deserialize and use these objects       
         /// </remarks>
-        /// <param name="obj">object to serialize</param>
         /// <seealso cref="SubmitJob(TaskFlowJob, IDictionary{string, string}, IDictionary{string, string}, bool)"/>
         /// <seealso cref="TaskFlowJob"/>
         /// <seealso cref="NetDataContractSerializer"/>
         /// <seealso cref="org.ow2.proactive.scheduler.common.task.ScriptTask" />
+        /// <param name="obj">object to serialize</param>        
         public static string SerializeWithNetDcs(object obj)
         {
             using (var ms = new MemoryStream())
@@ -192,16 +195,17 @@ namespace SharpRestClient
         /// <summary>
         /// Deserialize the given xml string using NetDataContractSerializer
         /// </summary>
+        /// <returns>De-serialized object</returns>
         /// <remarks>
         /// This is a utility function, it can be used to:
         /// 1) inside the TaskFlowJob, add a Powershell ScriptTask to serialize an object and return it as a result
         /// 2) When the task result is read using the RestClient API, deserialize the object using this function.
         /// </remarks>
-        /// <param name="xml">xml string to deserialize</param>
         /// <seealso cref="SubmitJob(TaskFlowJob, IDictionary{string, string}, IDictionary{string, string}, bool)"/>
         /// <seealso cref="GetJobResultValue(JobIdData)"/>
         /// <seealso cref="TaskFlowJob"/>
         /// <seealso cref="NetDataContractSerializer"/>
+        /// <param name="xml">xml string to deserialize</param>
         public static object DeserializeWithNetDcs(string xml)
         {
             using (var ms = new MemoryStream())
@@ -242,6 +246,7 @@ namespace SharpRestClient
         /// <summary>
         /// Returns true is there is a valid connection to the scheduler
         /// </summary>
+        /// <returns><c>true</c> if the client is connected to the ProActive server, <c>false</c> otherwise</returns>
         public bool IsConnected()
         {
             RestRequest request = new RestRequest("/scheduler/isconnected", Method.GET);
@@ -309,11 +314,12 @@ namespace SharpRestClient
         /// Create a credential file using the provided username and password
         /// </summary>
         /// <remarks>Call to this function requires a valid connection</remarks>
-        /// <param name="username">login name of the user</param>
-        /// <param name="password">password of the user</param>
+        /// <returns>encrypted credentials as byte array</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="PermissionException">if you are not allowed to create credentials</exception>
         /// <seealso cref="Connect(string, string)"/>
+        /// <param name="username">login name of the user</param>
+        /// <param name="password">password of the user</param>
         public byte[] CreateCredentials(string username, string password)
         {
             RestRequest request = new RestRequest("/scheduler/createcredential", Method.POST);
@@ -329,6 +335,7 @@ namespace SharpRestClient
         /// <summary>
         /// Returns the scheduler version
         /// </summary>
+        /// <returns>Scheduler <c>Version</c></returns>
         public Version GetVersion()
         {
             renewSession();
@@ -343,6 +350,7 @@ namespace SharpRestClient
         /// <summary>
         /// Gets the current status of the scheduler (Started, Stopped, etc)
         /// </summary>
+        /// <returns><c>SchedulerStatus</c> object</returns>
         public SchedulerStatus GetStatus()
         {
             renewSession();
@@ -357,15 +365,21 @@ namespace SharpRestClient
         /// <summary>
         /// Returns a list of jobs according to certain filter criterias
         /// </summary>
+        /// <returns>A list of <c>UserJobData</c></returns>
+        /// <remarks>
+        /// Attributes which can be used in sort parameter:
+        ///     ID, STATE, OWNER, PRIORITY, NAME, SUBMIT_TIME, START_TIME, IN_ERROR_TIME,
+        ///     FINISH_TIME, TOTAL_TASKS, PENDING_TASKS, RUNNING_TASKS, FINISHED_TASKS, FAILED_TASKS, FAULTY_TASKS, IN_ERROR_TASKS
+        /// </remarks>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="PermissionException">if you are not allowed to display the scheduler job list</exception>
         /// <param name="index">index in the list used as a starting point</param>
         /// <param name="limit">maximum number of items in the list</param>
         /// <param name="myJobs">return only jobs belonging to the current user</param>
         /// <param name="pending">include pending jobs</param>
         /// <param name="running">include runnning jobs</param>
         /// <param name="finished">include finished jobs</param>
-        /// <param name="sortParams">sort instructions</param>
-        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
-        /// <exception cref="PermissionException">if you are not allowed to display the scheduler job list</exception>
+        /// <param name="sortParams">a comma separated list of sort instructions. Each element must contain the sort attribute name and _d or _a suffix wether the attribute must be sorted in ascending or descending order. Example: <c>"NAME_a,ID_d"</c></param>
         public List<UserJobData> ListJobs(int index = 0, int limit = 50, bool myJobs = true, bool pending = true, bool running = true, bool finished = true, string sortParams = null)
         {
             renewSession();
@@ -391,11 +405,12 @@ namespace SharpRestClient
         /// <summary>
         /// Pause the running job given its jobId
         /// </summary>
-        /// <param name="jobId">id of the job</param>
+        /// <returns><c>true</c> if the job was successfully paused</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         /// <exception cref="JobAlreadyFinishedException">if you want to pause an already finished job</exception>
+        /// <param name="jobId">id of the job</param>
         public bool PauseJob(JobIdData jobId)
         {
             renewSession();
@@ -411,11 +426,12 @@ namespace SharpRestClient
         /// <summary>
         /// Resume a paused job given its jobId
         /// </summary>
-        /// <param name="jobId">id of the job</param>
+        /// <returns><c>true</c> if the job was successfully resumed</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         /// <exception cref="JobAlreadyFinishedException">if you want to resume an already finished job</exception>
+        /// <param name="jobId">id of the job</param>
         public bool ResumeJob(JobIdData jobId)
         {
             renewSession();
@@ -431,10 +447,11 @@ namespace SharpRestClient
         /// <summary>
         /// Kill a job given its jobId
         /// </summary>
-        /// <param name="jobId">id of the job</param>
+        /// <returns><c>true</c> if the job was successfully killed</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
         public bool KillJob(JobIdData jobId)
         {
             renewSession();
@@ -450,13 +467,13 @@ namespace SharpRestClient
         /// <summary>
         /// Resubmits a job given its jobId
         /// </summary>
-        /// <param name="jobId">id of the job</param>
-        /// <param name="variables">a dictionary of job variables to configure the job execution</param>
-        /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
         /// <returns>id of the new job</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="variables">a dictionary of job variables to configure the job execution</param>
+        /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
         public JobIdData ResubmitJob(JobIdData jobId, IDictionary<string, string> variables = null, IDictionary<string, string> genericInfo = null)
         {
             renewSession();
@@ -479,10 +496,11 @@ namespace SharpRestClient
         /// <summary>
         /// Remove a job from the scheduler memory. This call can also kill a running job.
         /// </summary>
-        /// <param name="jobId">id of the job</param>
+        /// <returns><c>true</c> if the job was successfully removed</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
         public bool RemoveJob(JobIdData jobId)
         {
             renewSession();
@@ -497,10 +515,10 @@ namespace SharpRestClient
 
         /// <summary>
         /// Change the priority of the job represented by jobId. 
-        /// Only administrator can change the priority to HIGH, HIGEST, IDLE.
+        /// Only administrators can change the priority to HIGH, HIGHEST or IDLE.
         /// </summary>
         /// <param name="jobId">id of the job</param>
-        /// <param name="priority"></param>
+        /// <param name="priority"><c>JobPriorityData</c> object</param>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
@@ -519,16 +537,9 @@ namespace SharpRestClient
         // todo add stop/start/shutdown ...
 
         /// <summary>
-        /// Submits a workflow created using the TaskFlowJob API       
+        /// Submits a workflow created using the <c>TaskFlowJob</c> API       
         /// </summary>
-        /// <param name="job">Task Flow job to submit</param>
-        /// <param name="variables">a dictionary of job variables to configure the job execution</param>
-        /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
-        /// <param name="printXml">display the workflow xml content on the Console</param>
         /// <returns>id of the new job</returns>
-        /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
-        /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
-        /// <see cref="TaskFlowJob"/>
         /// <example>
         /// <code>
         /// SchedulerClient sc = SchedulerClient.Connect("http://localhost:8080/rest", "admin", "admin")
@@ -545,6 +556,13 @@ namespace SharpRestClient
         /// Console.Out.WriteLine("Result of job " + jid.Id + " = " + taskResult);
         /// </code>
         /// </example>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
+        /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
+        /// <see cref="TaskFlowJob"/>
+        /// <param name="job">Task Flow job to submit</param>
+        /// <param name="variables">a dictionary of job variables to configure the job execution</param>
+        /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
+        /// <param name="printXml">display the workflow xml content on the Console</param>
         public JobIdData SubmitJob(TaskFlowJob job, IDictionary<string, string> variables = null, IDictionary<string, string> genericInfo = null, bool printXml = false)
         {
             Job2XMLTransformer transformer = new Job2XMLTransformer();
@@ -561,12 +579,12 @@ namespace SharpRestClient
         /// <summary>
         /// Submits a xml workflow accessible from the local file system
         /// </summary>
-        /// <param name="filePath">path to the xml workflow on the local file system</param>
-        /// <param name="variables">a dictionary of job variables to configure the job execution</param>
-        /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
         /// <returns>id of the new job</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
         /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
+        /// <param name="filePath">path to the xml workflow on the local file system</param>
+        /// <param name="variables">a dictionary of job variables to configure the job execution</param>
+        /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
         public JobIdData SubmitXml(string filePath, IDictionary<string,string> variables = null, IDictionary<string,string> genericInfo = null) {
             string url = getSubmitUrlWithVariables("/scheduler/submit", variables);          
             return _SubmitXml(url, filePath, genericInfo);
@@ -576,12 +594,12 @@ namespace SharpRestClient
         /// <summary>
         /// Submits a xml workflow accessible from the given url
         /// </summary>
-        /// <param name="workflowUrl">url used to access the xml workflow</param>
-        /// <param name="variables">a dictionary of job variables to configure the job execution</param>
-        /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
         /// <returns>id of the new job</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception> 
         /// <exception cref="PermissionException">if you are not allowed to submit a job</exception>
+        /// <param name="workflowUrl">url used to access the xml workflow</param>
+        /// <param name="variables">a dictionary of job variables to configure the job execution</param>
+        /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
         public JobIdData SubmitFromUrl(string workflowUrl, IDictionary<string, string> variables = null, IDictionary<string, string> genericInfo = null)
         {
             string submissionUrl = getSubmitUrlWithVariables("/scheduler/jobs", variables); ;                   
@@ -679,10 +697,11 @@ namespace SharpRestClient
         /// <summary>
         /// Returns the state of a job given its jobId
         /// </summary>
-        /// <param name="jobId">id of the job</param>
+        /// <returns>a <c>JobState</c> object</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
         public JobState GetJobState(JobIdData jobId)
         {
             renewSession();
@@ -698,12 +717,13 @@ namespace SharpRestClient
         /// <summary>
         /// Returns the state of a task given its jobId and task name
         /// </summary>
-        /// <param name="jobId">id of the job</param>
-        /// <param name="taskName">the task name</param>
+        /// <returns>a <c>TaskState</c> object</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="UnknownTaskException">if the task does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">the task name</param>
         public TaskState GetTaskState(JobIdData jobId, string taskName)
         {
             renewSession();
@@ -720,24 +740,27 @@ namespace SharpRestClient
 
 
         /// <summary>
-        /// Returns true if the job is not finished yet
+        /// Test if the job is not finished yet
         /// </summary>
-        /// <param name="jobId">id of the job</param>
+        /// <returns><c>true</c> if the job is not finished/returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
         public bool isJobAlive(JobIdData jobId)
         {
             return this.GetJobState(jobId).JobInfo.IsAlive();
         }
 
         /// <summary>
-        /// Returns the result of the given job. The JobResult structure contains multiple information regarding the job execution
+        /// Returns the result of the given job. The <c>JobResult</c> structure contains multiple information regarding the job execution
         /// </summary>
-        /// <param name="jobId">id of the job</param>
+        /// <returns>a <c>JobResult</c> object</returns>
+        /// <remarks>The job must be terminated in order to receive its result</remarks>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>        
         public JobResult GetJobResult(JobIdData jobId)
         {
             renewSession();
@@ -752,12 +775,15 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// Returns the string result value of the given job
+        /// Returns the task results of a job as a dictionary.
+        /// keys are task names and values are the corresponding task result converted to string.
         /// </summary>
-        /// <param name="jobId">id of the job</param>
+        /// <returns>a dictionary of task name, task result values</returns>
+        /// <remarks>The job must be terminated in order to receive its result</remarks>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
         public IDictionary<string, string> GetJobResultValue(JobIdData jobId)
         {
             renewSession();
@@ -772,14 +798,37 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// Wait until the given job is finished and return its result.
-        /// NotConnectedException, UnknownJobException, PermissionException, TimeoutException
+        /// Returns the job resultMap structure.
+        /// Keys and values are defined inside the workflow using the <c>resultMap</c> script binding
         /// </summary>
-        /// <param name="jobId">id of the job</param>
-        /// <param name="timeoutInMs">maximum wait time in milliseconds</param>
+        /// <returns>the result map</returns>
+        /// <remarks>The job does not need to be terminated. The <c>resultMap</c> structure can be populated during the workflow execution</remarks>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
+        public IDictionary<string, string> GetJobResultMap(JobIdData jobId)
+        {
+            renewSession();
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/resultmap", Method.GET);
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.AddHeader("Accept-Encoding", "gzip");
+            request.AddHeader("Accept", "application/json");
+
+            IRestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<IDictionary<string, string>>(response.Content);
+        }
+
+        /// <summary>
+        /// Wait until the given job is finished and return its result.       
+        /// </summary>
+        /// <returns>a <c>JobResult</c> object</returns>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="timeoutInMs">maximum wait time in milliseconds</param>
         public JobResult WaitForJobResult(JobIdData jobId, int timeoutInMs)
         {
             renewSession();
@@ -810,53 +859,14 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// Wait until the given task is finished and return its result.
-        /// NotConnectedException, UnknownJobException, UnknownTaskException, PermissionException, TimeoutException
+        /// Wait until the given job is finished and return its result as a dictionary.
         /// </summary>
-        /// <param name="jobId">id of the job</param>
-        /// <param name="taskName">name of the task</param>
-        /// <param name="timeoutInMs">maximum wait time in milliseconds</param>
-        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
-        /// <exception cref="UnknownJobException">if the job does not exist</exception>
-        /// <exception cref="UnknownTaskException" if the task does not exist</exception>
-        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
-        public TaskResult WaitForTaskResult(JobIdData jobId, string taskName, int timeoutInMs)
-        {
-            renewSession();
-            var cts = new CancellationTokenSource(timeoutInMs);
-            Task<TaskResult> tr = Task.Run(async delegate
-            {
-                return await WaitForTaskResultAsync(jobId, taskName, cts.Token);
-            }, cts.Token);
-            try
-            {
-                tr.Wait();
-            }
-            catch (AggregateException ae)
-            {
-                foreach (var e in ae.InnerExceptions)
-                {
-                    if (e is TaskCanceledException) // occurs in case of timeout
-                    {
-                        throw new TimeoutException("Timeout waiting for the task " + taskName + " of job " + jobId);
-                    }
-                    else
-                    {
-                        throw e;
-                    }
-                }
-            }
-            return tr.Result;
-        }
-
-        /// <summary>
-        /// Wait until the given job is finished and return its string value result.
-        /// </summary>
-        /// <param name="jobId">id of the job</param>
-        /// <param name="timeoutInMs">maximum wait time in milliseconds</param>
+        /// <returns>a dictionary of task name, task result values</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="timeoutInMs">maximum wait time in milliseconds</param>
         public IDictionary<string,string> WaitForJobResultValue(JobIdData jobId, int timeoutInMs)
         {
             renewSession();
@@ -932,13 +942,17 @@ namespace SharpRestClient
         }
 
         /// <summary>
-        /// Returns the result of the given task. The TaskResult structure contains multiple information regarding the task execution
+        /// Returns the result of the given task.
         /// </summary>
-        /// <param name="jobId">id of the job</param>
-        /// <param name="taskName">name of the task inside the given job</param>
+        /// <returns>a <c>TaskResult</c> object</returns>
+        /// <remarks>
+        /// The <c>TaskResult</c> structure contains multiple information regarding the task execution
+        /// </remarks>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">name of the task inside the given job</param>
         public TaskResult GetTaskResult(JobIdData jobId, string taskName) 
         {
             renewSession();
@@ -961,13 +975,55 @@ namespace SharpRestClient
         }
 
         /// <summary>
+        /// Wait until the given task is finished and return its result.
+        /// </summary>
+        /// <returns>a <c>TaskResult</c> object</returns>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="UnknownTaskException"> if the task does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">name of the task</param>
+        /// <param name="timeoutInMs">maximum wait time in milliseconds</param>
+        public TaskResult WaitForTaskResult(JobIdData jobId, string taskName, int timeoutInMs)
+        {
+            renewSession();
+            var cts = new CancellationTokenSource(timeoutInMs);
+            Task<TaskResult> tr = Task.Run(async delegate
+            {
+                return await WaitForTaskResultAsync(jobId, taskName, cts.Token);
+            }, cts.Token);
+            try
+            {
+                tr.Wait();
+            }
+            catch (AggregateException ae)
+            {
+                foreach (var e in ae.InnerExceptions)
+                {
+                    if (e is TaskCanceledException) // occurs in case of timeout
+                    {
+                        throw new TimeoutException("Timeout waiting for the task " + taskName + " of job " + jobId);
+                    }
+                    else
+                    {
+                        throw e;
+                    }
+                }
+            }
+            return tr.Result;
+        }
+
+        /// <summary>
         /// Returns the output and error log of the given finished task.
         /// </summary>
-        /// <param name="jobId">id of the job</param>
-        /// <param name="taskName">name of the task inside the given job</param>
+        /// <returns>the task logs</returns>
+        /// <remarks>The task must be terminated in order to receive its logs</remarks>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">name of the task inside the given job</param>
         public string GetAllTaskLogs(JobIdData jobId, string taskName)
         {
             renewSession();
@@ -985,11 +1041,13 @@ namespace SharpRestClient
         /// <summary>
         /// Returns the output log of the given finished task.
         /// </summary>
-        /// <param name="jobId">id of the job</param>
-        /// <param name="taskName">name of the task inside the given job</param>
+        /// <returns>the task stdout logs</returns>
+        /// <remarks>The task must be terminated in order to receive its logs</remarks>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">name of the task inside the given job</param>
         public string GetStdOutTaskLogs(JobIdData jobId, string taskName)
         {
             renewSession();
@@ -1007,11 +1065,13 @@ namespace SharpRestClient
         /// <summary>
         /// Returns the error log of the given finished task.
         /// </summary>
-        /// <param name="jobId">id of the job</param>
-        /// <param name="taskName">name of the task inside the given job</param>
+        /// <returns>the task stderr logs</returns>
+        /// <remarks>The task must be terminated in order to receive its logs</remarks>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">name of the task inside the given job</param>
         public string GetStdErrTaskLogs(JobIdData jobId, string taskName)
         {
             renewSession();
@@ -1029,11 +1089,12 @@ namespace SharpRestClient
         /// <summary>
         /// Returns the string value of the given task result.
         /// </summary>
-        /// <param name="jobId">id of the job</param>
-        /// <param name="taskName">name of the task inside the given job</param>
+        /// <returns>the task result converted to string</returns>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="UnknownJobException">if the job does not exist</exception>
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="taskName">name of the task inside the given job</param>
         public string GetTaskResultValue(JobIdData jobId, string taskName)
         {
             renewSession();
@@ -1050,17 +1111,20 @@ namespace SharpRestClient
 
         /// <summary>
         /// Push the given file, accessible from the local file system to a remote scheduler server data space (GLOBALSPACE or USERSPACE).
-        /// 
-        /// example PushFile("GLOBALSPACE", "", "file.txt", "c:\tmp\file.txt")
         /// </summary>
-        /// <param name="spacename">Server dataspace name, can either be GLOBALSPACE or USERSPACE</param>
-        /// <param name="pathname">Remote path inside the remote dataspace, use "" to push the file inside the dataspace root</param>
-        /// <param name="filename">file name to use on the remote dataspace</param>
-        /// <param name="file">path to the local file</param>
+        /// <example>
+        /// <code>
+        /// client.PushFile("GLOBALSPACE", "", "file.txt", "c:\tmp\file.txt");
+        /// </code>
+        /// </example>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="PermissionException">if you are not allowed to push files</exception>
         /// <exception cref="SchedulerException">if an error occurs on the server side</exception>
         /// <exception cref="ArgumentException">if arguments are not valid</exception>
+        /// <param name="spacename">Server dataspace name, can either be GLOBALSPACE or USERSPACE</param>
+        /// <param name="pathname">Remote path inside the remote dataspace, use "" to push the file inside the dataspace root</param>
+        /// <param name="filename">file name to use on the remote dataspace</param>
+        /// <param name="file">path to the local file</param>        
         public bool PushFile(string spacename, string pathname, string filename, string file)
         {
             renewSession();
@@ -1083,20 +1147,23 @@ namespace SharpRestClient
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
-
-        // !! DANGEROUS !! - Loads all data in memory before writing to a file
+       
         /// <summary>
         /// Pull the given file, accessible from a remote data space (GLOBALSPACE or USERSPACE), to a local file.
-        /// 
-        /// example PullFile("GLOBALSPACE", "file.txt", "c:\tmp\file.txt")
         /// </summary>
-        /// <param name="spacename">Server dataspace name, can either be GLOBALSPACE or USERSPACE</param>
-        /// <param name="pathname">Remote path inside the remote dataspace to copy from</param>
-        /// <param name="outputFile">path to the local file</param>
+        /// <returns><c>true</c> if the file has been successfully pulled</returns>
+        /// <example>
+        /// <code>
+        /// client.PullFile("GLOBALSPACE", "file.txt", "c:\tmp\file.txt");
+        /// </code>
+        /// </example>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="PermissionException">if you are not allowed to push files</exception>
         /// <exception cref="SchedulerException">if an error occurs on the server side</exception>
         /// <exception cref="ArgumentException">if arguments are not valid</exception>
+        /// <param name="spacename">Server dataspace name, can either be GLOBALSPACE or USERSPACE</param>
+        /// <param name="pathname">Remote path inside the remote dataspace to copy from</param>
+        /// <param name="outputFile">path to the local file</param>
         public bool PullFile(string spacename, string pathname, string outputFile)
         {
             renewSession();
@@ -1108,6 +1175,7 @@ namespace SharpRestClient
 
             RestRequest request = new RestRequest(urlBld.ToString(), Method.GET);
             request.AddHeader("Accept", "application/octet-stream");
+            // !! DANGEROUS !! - Loads all data in memory before writing to a file
             byte[] data = _restClient.DownloadData(request);
             File.WriteAllBytes(outputFile, data);
             return true;
@@ -1116,15 +1184,20 @@ namespace SharpRestClient
         /// <summary>
         /// Pushes files of a given directory to the dataspace.
         /// Internally calls PushFile per file to be pushed.
-        /// Example PushDirectory("GLOBALSPACE", "", "c:\tmp\", "*")
         /// </summary>
+        /// <returns><c>true</c> if the directory has been successfully pushed</returns>
+        /// <example>
+        /// <code>
+        /// client.PushDirectory("GLOBALSPACE", "", "c:\tmp\", "*")
+        /// </code>
+        /// </example>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="SchedulerException">if an error occurs on the server side</exception>
+        /// <exception cref="ArgumentException">if arguments are not valid</exception>
         /// <param name="spacename">either GLOBALSPACE or USERSPACE</param>
         /// <param name="pathname">pathname to be used in the server, for instance /dir1/</param>
         /// <param name="localdir">path of the local directory whose content will be transferred</param>
         /// <param name="wildcard">wildcard to select some of the local files to be transferred</param>
-        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
-        /// <exception cref="SchedulerException">if an error occurs on the server side</exception>
-        /// <exception cref="ArgumentException">if arguments are not valid</exception>
         public bool PushDirectory(string spacename, string pathname, 
             string localdir, string wildcard)
         {
@@ -1143,15 +1216,19 @@ namespace SharpRestClient
 
         /// <summary>
         /// Delete a file from the remote data space (GLOBALSPACE or USERSPACE).
-        /// 
-        /// example DeleteFile("GLOBALSPACE", "file.txt")
         /// </summary>
-        /// <param name="spacename">Server dataspace name, can either be GLOBALSPACE or USERSPACE</param>
-        /// <param name="pathname">Remote path inside the remote dataspace, use "" to push the file inside the dataspace root</param>
+        /// <returns><c>true</c> if the file has been successfully deleted</returns>
+        /// <example>
+        /// <code>
+        /// client.DeleteFile("GLOBALSPACE", "file.txt")
+        /// </code>
+        /// </example>
         /// <exception cref="NotConnectedException">if you are not authenticated</exception>
         /// <exception cref="PermissionException">if you are not allowed to push files</exception>
         /// <exception cref="SchedulerException">if an error occurs on the server side</exception>
         /// <exception cref="ArgumentException">if arguments are not valid</exception>
+        /// <param name="spacename">Server dataspace name, can either be GLOBALSPACE or USERSPACE</param>
+        /// <param name="pathname">Remote path inside the remote dataspace, use "" to push the file inside the dataspace root</param>
         public bool DeleteFile(string spacename, string pathname)
         {
             renewSession();

@@ -2,7 +2,7 @@
 using RestSharp;
 using System;
 using System.IO;
-namespace SharpRestClient.Exceptions
+namespace PWSClient.Exceptions
 {
     /// <summary>
     /// Internal Exception of the ProActive Scheduler

@@ -1,7 +1,7 @@
-# PWSClient: ProActive Workflows & Scheduling .NET Client.
+# PWSClient: ProActive Workflows & Scheduling .NET Client
 
 ## Introduction
-PWSClient is a .NET client for ProActive Workflows & Scheduling server based on the HTTP protocol.
+PWSClient is a .NET client for [ProActive Workflows & Scheduling](https://www.activeeon.com/products/workflows-scheduling/) server based on the HTTP protocol.
 
 PWSClient allows to:
  - Create and submit workflows
@@ -14,9 +14,9 @@ PWSClient allows to:
 Submit a Hello World Job
 
 ```csharp
-using SharpRestClient;
+using PWSClient;
 using System.IO;
-using SharpRestClient.Exceptions;
+using PWSClient.Exceptions;
 using System.Collections.Generic;
 using org.ow2.proactive.scheduler.common.task;
 using org.ow2.proactive.scheduler.common.job;
@@ -50,6 +50,6 @@ class TestClass
 ```
 
 ## API Reference
-[Client API](api/SharpRestClient.SchedulerClient.html)
+[Client API](api/PWSClient.SchedulerClient.html)
 
 [Workflow Creation API](api/org.ow2.proactive.scheduler.common.job.TaskFlowJob.html)

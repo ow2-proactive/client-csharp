@@ -1,8 +1,8 @@
 ﻿using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SharpRestClient;
+using PWSClient;
 using System.IO;
-using SharpRestClient.Exceptions;
+using PWSClient.Exceptions;
 using System.Collections.Generic;
 using System.Threading;
 using org.ow2.proactive.scheduler.common.task;
@@ -79,7 +79,7 @@ namespace Tests
             }
 
             // Check Scheduler Verison is 6.X
-            SharpRestClient.Version ver = sc.GetVersion();
+            PWSClient.Version ver = sc.GetVersion();
             Assert.IsNotNull(ver.Scheduler);
             Assert.IsNotNull(ver.Rest);
             /*            if (!ver.Scheduler.StartsWith("7"))
@@ -352,6 +352,18 @@ namespace Tests
             return job;
         }
 
+        private TaskFlowJob createResultMapJob(string key, string value)
+        {
+            TaskFlowJob job = new TaskFlowJob();
+            job.Name = "Result Map Job";
+            ScriptTask task = new ScriptTask();
+            task.Name = "result_map_task";
+            TaskScript script = new TaskScript(new SimpleScript("resultMap.put('" + key + "','" + value + "')", "groovy", new string[0]));
+            task.Script = script;
+            job.addTask(task);
+            return job;
+        }
+
         [TestMethod]
         public void SubmitJobAndWait()
         {
@@ -408,6 +420,31 @@ namespace Tests
                 TaskResult tr2 = jr.Tasks["get_gi_task"];
                 Assert.IsNotNull(tr2);
                 Assert.AreEqual("my_gi_value", tr2.Value);
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
+        }
+
+        [TestMethod]
+        public void SubmitJobResultMap()
+        {
+            TaskFlowJob job = createResultMapJob("my_var", "my_value");
+            Dictionary<string, string> variables = new Dictionary<string, string>();
+            Dictionary<string, string> genericInfo = new Dictionary<string, string>();
+            JobIdData jid = sc.SubmitJob(job, variables, genericInfo);
+            try
+            {
+                Assert.AreNotEqual<long>(0, jid.Id, "After submission the job id is invalid!");
+                Assert.AreEqual<string>("Result Map Job", jid.ReadableName, "After submission the job name is invalid!");
+
+                JobResult jr = sc.WaitForJobResult(jid, 30000);
+                Assert.IsNotNull(jr);
+                IDictionary<string, string> resultMap = sc.GetJobResultMap(jid);
+                Assert.IsNotNull(resultMap);
+                Assert.AreEqual("my_value", resultMap["my_var"]);
             }
             finally
             {

@@ -13,7 +13,7 @@
 	<RepositoryUrl>https://github.com/ow2-proactive/client-csharp</RepositoryUrl>
 	<RepositoryType>git</RepositoryType>
 	<Company>ActiveEon</Company>
-    <Version>11.1.0.3</Version>
+    <Version>11.1.0.4</Version>
 	<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">

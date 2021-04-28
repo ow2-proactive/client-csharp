@@ -32,7 +32,7 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\SharpRestClient\SharpRestClient.csproj" />
+    <ProjectReference Include="..\SharpRestClient\PWSClient.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Properties\Settings.settings">

@@ -124,7 +124,7 @@ namespace org.ow2.proactive.scheduler.common.util.text
 		/// <returns> a lookup using system properties, not null </returns>
 		public static StrLookup systemPropertiesLookup()
 		{
-			SettingsPropertyCollection systemProperties = systemProperties = SharpRestClient.Properties.Settings.Default.Properties;
+			SettingsPropertyCollection systemProperties = systemProperties = PWSClient.Properties.Settings.Default.Properties;
 			IDictionary<string, object> propertiesMap = copyProperties(systemProperties);
 //JAVA TO C# CONVERTER TODO TASK: Most Java annotations will not have direct .NET equivalent attributes:
 //ORIGINAL LINE: @SuppressWarnings("unchecked") final java.util.Map<String, String> propertiesMap = (java.util.Map) properties;

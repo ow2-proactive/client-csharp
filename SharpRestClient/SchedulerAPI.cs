@@ -2,7 +2,7 @@
 using Newtonsoft.Json.Converters;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
-namespace SharpRestClient
+namespace PWSClient
 {
 
     /// <summary>
