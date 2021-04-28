@@ -10,7 +10,9 @@
     <PackageId>PWSClient</PackageId>
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <PackageTags>ProActive;PWS;ActiveEon</PackageTags>
-    <Company>ActiveEon</Company>
+	<RepositoryUrl>https://github.com/ow2-proactive/client-csharp</RepositoryUrl>
+	<RepositoryType>git</RepositoryType>
+	<Company>ActiveEon</Company>
     <Version>11.1.0.3</Version>
 	<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
