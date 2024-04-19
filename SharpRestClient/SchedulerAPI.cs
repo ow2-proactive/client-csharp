@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 namespace PWSClient
@@ -420,6 +421,51 @@ namespace PWSClient
         public ParallelEnvironmentData ParallelEnvironment { get; set; }
     }
 
+    public sealed class JobVariable
+    {
+        /// <summary>
+        /// the variable name  
+        /// </summary>
+        [JsonProperty("name")]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// the variable value  
+        /// </summary>
+        [JsonProperty("value")]
+        public string Value { get; set; }
+
+        /// <summary>
+        /// the variable model  
+        /// </summary>
+        [JsonProperty("model")]
+        public string Model { get; set; }
+
+        /// <summary>
+        /// the variable description  
+        /// </summary>
+        [JsonProperty("description")]
+        public string Description { get; set; }
+
+        /// <summary>
+        /// the variable group  
+        /// </summary>
+        [JsonProperty("group")]
+        public string Group { get; set; }
+
+        /// <summary>
+        /// is variable advanced  
+        /// </summary>
+        [JsonProperty("advanced")]
+        public bool Advanced { get; set; }
+
+        /// <summary>
+        /// is variable hidden  
+        /// </summary>
+        [JsonProperty("hidden")]
+        public bool Hidden { get; set; }
+    }
+
     /// <summary>
     /// Summary information of this job
     /// </summary>
@@ -430,6 +476,26 @@ namespace PWSClient
         /// </summary>
         [JsonProperty("jobId")]
         public JobIdData JobId { get; set; }
+        /// <summary>
+        /// parent id of this Job or null if this Job does not have a parent
+        /// </summary>
+        [JsonProperty("parentId")]
+        public Nullable<long> ParentId { get; set; }
+        /// <summary>
+        /// number of children of this Job
+        /// </summary>
+        [JsonProperty("childrenCount")]
+        public int ChildrenCount { get; set; }
+        /// <summary>
+        /// is result map available
+        /// </summary>
+        [JsonProperty("resultMapPresent")]
+        public bool ResultMapPresent { get; set; }
+        /// <summary>
+        /// list of precious tasks of this Job
+        /// </summary>
+        [JsonProperty("preciousTasks")]
+        public List<string> PreciousTasks { get; set; }
         /// <summary>
         /// This job's starting time (one task at least started) 
         /// </summary>
@@ -506,6 +572,36 @@ namespace PWSClient
         [JsonProperty("variables")]
         public IDictionary<string, string> Variables { get; set; }
         /// <summary>
+        /// Detailed Variables attached to this job.
+        /// </summary>
+        [JsonProperty("detailedVariables")]
+        public IDictionary<string, JobVariable> DetailedVariables { get; set; }
+        /// <summary>
+        /// Signals attached to this job.
+        /// </summary>
+        [JsonProperty("signals")]
+        public IList<string> Signals { get; set; }
+        /// <summary>
+        /// Detailed Signals attached to this job.
+        /// </summary>
+        [JsonProperty("detailedSignals")]
+        public IDictionary<string, IDictionary<string, JobVariable>> DetailedSignals { get; set; }
+        /// <summary>
+        /// visulization connection strings attached to this job.
+        /// </summary>
+        [JsonProperty("visualizationConnectionStrings")]
+        public IDictionary<string, string> VisualizationConnectionStrings { get; set; }
+        /// <summary>
+        /// visulization icons attached to this job.
+        /// </summary>
+        [JsonProperty("visualizationIconss")]
+        public IDictionary<string, string> VisualizationIcons { get; set; }
+        /// <summary>
+        /// Services ids attached to this job.
+        /// </summary>
+        [JsonProperty("attachedServices")]
+        public IDictionary<int, bool> AttachedServices { get; set; }
+        /// <summary>
         /// Priority attached to this job.
         /// </summary>
         [JsonProperty("priority")]
@@ -515,6 +611,37 @@ namespace PWSClient
         /// </summary>
         [JsonProperty("jobOwner")]
         public string Owner { get; set; }
+        /// <summary>
+        /// Tenant of this job owner.
+        /// </summary>
+        [JsonProperty("tenant")]
+        public string Tenant { get; set; }
+        /// <summary>
+        /// Domain of this job owner. Usually equal to Tenant.
+        /// </summary>
+        [JsonProperty("domain")]
+        public string Domain { get; set; }
+        /// <summary>
+        /// Project name of this job.
+        /// </summary>
+        [JsonProperty("projectName")]
+        public string Project { get; set; }
+        /// <summary>
+        /// Bucket name of this job. Only defined when the job was submitted from the ProActive Catalog.
+        /// </summary>
+        [JsonProperty("bucketName")]
+        public string Bucket { get; set; }
+        /// <summary>
+        /// Label of this job. Only defined when a label has been manually applied to this job using the Scheduler portal.
+        /// </summary>
+        [JsonProperty("label")]
+        public string Label { get; set; }
+        /// <summary>
+        /// Submission mode of this job.
+        /// </summary>
+        [JsonProperty("submissionMode")]
+        public string SubmissionMode { get; set; }
+
 
         /// <summary>
         /// True if this job is not finished yet.

@@ -46,10 +46,12 @@ namespace org.ow2.proactive.scheduler.common.job.factories
 		public static readonly Schemas SCHEMA_3_10 = new Schemas("SCHEMA_3_10", InnerEnum.SCHEMA_3_10, "/org/ow2/proactive/scheduler/common/xml/schemas/jobdescriptor/3.10/schedulerjob.rng", "urn:proactive:jobdescriptor:3.10");
 		public static readonly Schemas SCHEMA_3_11 = new Schemas("SCHEMA_3_11", InnerEnum.SCHEMA_3_11, "/org/ow2/proactive/scheduler/common/xml/schemas/jobdescriptor/3.11/schedulerjob.rng", "urn:proactive:jobdescriptor:3.11");
 		public static readonly Schemas SCHEMA_3_12 = new Schemas("SCHEMA_3_12", InnerEnum.SCHEMA_3_12, "/org/ow2/proactive/scheduler/common/xml/schemas/jobdescriptor/3.12/schedulerjob.rng", "urn:proactive:jobdescriptor:3.12");
-		public static readonly Schemas SCHEMA_DEV = new Schemas("SCHEMA_DEV", InnerEnum.SCHEMA_DEV, "/org/ow2/proactive/scheduler/common/xml/schemas/jobdescriptor/dev/schedulerjob.rng", "urn:proactive:jobdescriptor:dev");
+        public static readonly Schemas SCHEMA_3_13 = new Schemas("SCHEMA_3_13", InnerEnum.SCHEMA_3_13, "/org/ow2/proactive/scheduler/common/xml/schemas/jobdescriptor/3.13/schedulerjob.rng", "urn:proactive:jobdescriptor:3.13");
+        public static readonly Schemas SCHEMA_3_14 = new Schemas("SCHEMA_3_14", InnerEnum.SCHEMA_3_14, "/org/ow2/proactive/scheduler/common/xml/schemas/jobdescriptor/3.14/schedulerjob.rng", "urn:proactive:jobdescriptor:3.14");
+        public static readonly Schemas SCHEMA_DEV = new Schemas("SCHEMA_DEV", InnerEnum.SCHEMA_DEV, "/org/ow2/proactive/scheduler/common/xml/schemas/jobdescriptor/dev/schedulerjob.rng", "urn:proactive:jobdescriptor:dev");
 
 		// should contain a reference to the last one declared, see #validate
-		public static readonly Schemas SCHEMA_LATEST = new Schemas("SCHEMA_LATEST", InnerEnum.SCHEMA_LATEST, SCHEMA_3_12.location, SCHEMA_3_12.@namespace);
+		public static readonly Schemas SCHEMA_LATEST = new Schemas("SCHEMA_LATEST", InnerEnum.SCHEMA_LATEST, SCHEMA_3_14.location, SCHEMA_3_14.@namespace);
 
 		private static readonly List<Schemas> valueList = new List<Schemas>();
 
@@ -68,7 +70,9 @@ namespace org.ow2.proactive.scheduler.common.job.factories
 			SCHEMA_3_10,
 			SCHEMA_3_11,
 			SCHEMA_3_12,
-			SCHEMA_DEV,
+            SCHEMA_3_13,
+            SCHEMA_3_14,
+            SCHEMA_DEV,
 			SCHEMA_LATEST
 		}
 
@@ -105,7 +109,9 @@ namespace org.ow2.proactive.scheduler.common.job.factories
 			valueList.Add(SCHEMA_3_10);
 			valueList.Add(SCHEMA_3_11);
 			valueList.Add(SCHEMA_3_12);
-			valueList.Add(SCHEMA_DEV);
+            valueList.Add(SCHEMA_3_13);
+            valueList.Add(SCHEMA_3_14);
+            valueList.Add(SCHEMA_DEV);
 			valueList.Add(SCHEMA_LATEST);
 		}
 

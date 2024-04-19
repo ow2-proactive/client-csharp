@@ -6,7 +6,7 @@
           "files": [
             "**.csproj"
           ],
-          "src": "C:\\GitHubFork\\client-csharp\\SharpRestClient"
+          "src": ""
         }
       ],
       "dest": "api",

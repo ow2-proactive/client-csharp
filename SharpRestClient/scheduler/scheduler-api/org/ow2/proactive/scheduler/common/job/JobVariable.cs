@@ -42,11 +42,19 @@ namespace org.ow2.proactive.scheduler.common.job
 	public class JobVariable
 	{
 
-		private string name;
+		protected string name;
 
-		private string value;
+        protected string value;
 
-		private string model;
+        protected string model;
+
+        protected string description;
+
+        protected string group;
+
+        protected bool advanced = false;
+
+        protected bool hidden = false;
 
 		public JobVariable()
 		{
@@ -57,14 +65,30 @@ namespace org.ow2.proactive.scheduler.common.job
 		{
 		}
 
-		public JobVariable(string name, string value, string model)
+		public JobVariable(string name, string value, string model) : this(name, value, model, null)
 		{
-			this.name = name;
-			this.value = value;
-			this.model = model;
 		}
 
-		public virtual string Name
+        public JobVariable(string name, string value, string model, string description) : this(name, value, model, description, null)
+        {           
+        }
+
+        public JobVariable(string name, string value, string model, string description, string group) : this(name, value, model, description, group, false, false)
+        {          
+        }
+
+        public JobVariable(string name, string value, string model, string description, string group, bool advanced, bool hidden)
+        {
+            this.name = name;
+            this.value = value;
+            this.model = model;
+            this.description = description;
+            this.group = group;
+			this.advanced = advanced;
+			this.hidden = hidden;
+        }
+
+        public virtual string Name
 		{
 			get
 			{
@@ -102,8 +126,56 @@ namespace org.ow2.proactive.scheduler.common.job
 			}
 		}
 
+        public virtual string Description
+        {
+            get
+            {
+                return description;
+            }
+            set
+            {
+                this.description = value;
+            }
+        }
 
-		public override bool Equals(object @object)
+        public virtual string Group
+        {
+            get
+            {
+                return group;
+            }
+            set
+            {
+                this.group = value;
+            }
+        }
+
+        public virtual bool Advanced
+        {
+            get
+            {
+                return advanced;
+            }
+            set
+            {
+                this.advanced = value;
+            }
+        }
+
+        public virtual bool Hidden
+        {
+            get
+            {
+                return hidden;
+            }
+            set
+            {
+                this.hidden = value;
+            }
+        }
+
+
+        public override bool Equals(object @object)
 		{
 			if (this == @object)
 			{
@@ -167,7 +239,7 @@ namespace org.ow2.proactive.scheduler.common.job
 
 		public override string ToString()
 		{
-			return "JobVariable{" + "name='" + name + '\'' + ", value='" + value + '\'' + ", model='" + model + '\'' + '}';
+			return "JobVariable{" + "name='" + name + '\'' + ", value='" + value + '\'' + ", model='" + model + '\'' + ", description='" + description + '\'' + ", group='" + group + '\'' + ", advanced='" + advanced + '\'' + ", hidden='" + hidden + '\'' + '}';
 		}
 
 	}

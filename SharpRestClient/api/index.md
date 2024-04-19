@@ -1,2 +1,4 @@
-# PLACEHOLDER
-TODO: Add .NET projects to the *src* folder and run `docfx` to generate **REAL** *API Documentation*!
+# PWS Client API
+[Client API](PWSClient.SchedulerClient.html)
+
+[Workflow Creation API](org.ow2.proactive.scheduler.common.job.TaskFlowJob.html)

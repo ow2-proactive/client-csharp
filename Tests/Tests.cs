@@ -8,6 +8,7 @@ using System.Threading;
 using org.ow2.proactive.scheduler.common.task;
 using org.ow2.proactive.scheduler.common.job;
 using org.ow2.proactive.scripting;
+using System.Linq;
 
 namespace Tests
 {
@@ -15,7 +16,7 @@ namespace Tests
     public class RestClientTests
     {
 
-        public static readonly string LOCAL_SERVER_URL = "http://localhost:8080";
+        public static readonly string LOCAL_SERVER_URL = "https://Mage2:8443";
 
         public static readonly string LOCAL_REST_SERVER_URL = LOCAL_SERVER_URL + "/rest";
 
@@ -43,25 +44,27 @@ namespace Tests
                 username = "admin";
                 password = "admin";
             }
-            catch (Exception)
+            catch (Exception e1)
             {
+                Console.Error.WriteLine(e1.ToString());
                 Console.WriteLine("No Scheduler running on localhost, trying to connect to " + TRY_REST_SERVER_URL);
 
                 string user;
                 string pass;
-                if (Properties.Settings.Default.TRY_USER != null)
+                if (PWSClient.Properties.Resources.TRY_USER != null)
                 {
-                    user = (string)Properties.Settings.Default.TRY_USER;
-                    pass = (string)Properties.Settings.Default.TRY_PASS;
+
+                    user = (string) PWSClient.Properties.Resources.TRY_USER;
+                    pass = (string) PWSClient.Properties.Resources.TRY_PASS;
                 }
                 else
                 {
                     user = Environment.GetEnvironmentVariable("TRY_USER", EnvironmentVariableTarget.Machine);
                     pass = Environment.GetEnvironmentVariable("TRY_PASS", EnvironmentVariableTarget.Machine);
-                }
+                };
                 if (String.IsNullOrEmpty(user) || String.IsNullOrEmpty(pass))
                 {
-                    Assert.Fail("Unable to run tests! No local scheduler running and no user configured for the try platform, please edit the project properties TRY_USER and TRY_PASS");
+                    Assert.Fail("Unable to run tests! No local scheduler running and no user configured for the try platform, please edit the project Properties.Resources TRY_USER and TRY_PASS");
                 }
                 try
                 {
@@ -109,6 +112,15 @@ namespace Tests
         public void GetSchedulerStatus()
         {
             Assert.AreEqual<SchedulerStatus>(SchedulerStatus.STARTED, sc.GetStatus());
+        }
+
+        [TestMethod]
+        public void Disconnect()
+        {
+            sc.Disconnect();
+            Assert.AreEqual<bool>(false, sc.IsConnected());
+            sc = SchedulerClient.Connect(schedulerRestUrl, username, password);
+            Assert.AreEqual<bool>(true, sc.IsConnected());
         }
 
         [TestMethod]
@@ -251,7 +263,7 @@ namespace Tests
                 List<UserJobData> jobs = sc.ListJobs();
                 Assert.IsTrue(jobs.Count > 0);
                 bool jobFound = false;
-                foreach(UserJobData jobData in jobs)
+                foreach (UserJobData jobData in jobs)
                 {
                     Assert.IsNotNull(jobData.JobId);
                     if (jobData.JobId.Equals(jid.Id.ToString()))
@@ -276,7 +288,7 @@ namespace Tests
         public void ResubmitJob()
         {
             string jobname = "script_task_with_result";
-            JobIdData jid = sc.SubmitXml(GetWorkflowPath(jobname));            
+            JobIdData jid = sc.SubmitXml(GetWorkflowPath(jobname));
             try
             {
                 Assert.AreNotEqual<long>(0, jid.Id, "After submission the job id is invalid!");
@@ -285,7 +297,7 @@ namespace Tests
             }
             finally
             {
-                sc.KillJob(jid);               
+                sc.KillJob(jid);
             }
 
             JobIdData jid2 = sc.ResubmitJob(jid);
@@ -573,6 +585,35 @@ namespace Tests
 
                 string taskResultValue = sc.GetTaskResultValue(jid, taskName);
                 Assert.AreEqual<string>(expectedResult, taskResultValue, "Invalid task result value!");
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
+        }
+
+        [TestMethod]
+        public void WaitForSignal()
+        {
+            string jobName = "Wait_For_Signals";
+            string signalName = "stop";
+            string remainingSignalName = "kill";            
+            JobIdData jid = sc.SubmitXml(GetWorkflowPath(jobName));
+            try
+            {
+                ISet<string> signals = new HashSet<string>();
+                signals.Add(signalName);
+
+                ISet<string> receivedSignals = sc.WaitForJobSignal(jid, signals, 180000);
+                Assert.IsNotNull(receivedSignals);
+                Assert.IsTrue(receivedSignals.Contains("ready_"+signalName));
+                receivedSignals = sc.SendSignal(jid, signalName);
+                Assert.IsNotNull(receivedSignals);
+                Assert.IsTrue(receivedSignals.Contains("ready_" + remainingSignalName));
+                Assert.IsFalse(receivedSignals.Contains("ready_" + signalName));
+                JobResult jr = sc.WaitForJobResult(jid, 180000);
+                Assert.IsNotNull(jr);
             }
             finally
             {
