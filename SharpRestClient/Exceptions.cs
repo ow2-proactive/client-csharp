@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json.Linq;
 using RestSharp;
 using System;
+using System.Diagnostics;
 using System.IO;
 namespace PWSClient.Exceptions
 {
@@ -157,6 +158,18 @@ namespace PWSClient.Exceptions
                     return new SchedulerException(errorMessage);
             }
         }
+
+        public static Exception FromBadRequest(string exceptionClass, string errorMessage)
+        {
+            switch (exceptionClass)
+            {
+                case IAE:
+                    return new ArgumentException(errorMessage);
+                default:
+                    return new SchedulerException(errorMessage);
+            }
+        }
+            
 
         /// <summary>
         /// find an exception from an internal error

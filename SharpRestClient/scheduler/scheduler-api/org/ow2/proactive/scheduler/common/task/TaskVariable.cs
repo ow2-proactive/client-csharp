@@ -59,7 +59,22 @@ namespace org.ow2.proactive.scheduler.common.task
 			this.jobInherited = isJobInherited;
 		}
 
-		public virtual bool JobInherited
+        public TaskVariable(string name, string value, string model, bool isJobInherited, string description) : base(name, value, model, description)
+        {
+            this.jobInherited = isJobInherited;
+        }
+
+        public TaskVariable(string name, string value, string model, bool isJobInherited, string description, string group) : base(name, value, model, description, group)
+        {
+            this.jobInherited = isJobInherited;
+        }
+
+        public TaskVariable(string name, string value, string model, bool isJobInherited, string description, string group, bool advanced, bool hidden) : base(name, value, model, description, group, advanced, hidden)
+        {
+            this.jobInherited = isJobInherited;
+        }
+
+        public virtual bool JobInherited
 		{
 			get
 			{
@@ -141,7 +156,7 @@ namespace org.ow2.proactive.scheduler.common.task
 
 		public override string ToString()
 		{
-			return "TaskVariable{" + "name='" + Name + '\'' + ", value='" + Value + '\'' + ", model='" + Model + '\'' + ", jobInherited=" + jobInherited + '}';
+			return "TaskVariable{" + "name='" + name + '\'' + ", value='" + value + '\'' + ", model='" + model + '\'' + ", jobInherited=" + jobInherited + ", Description=" + description + ", Group=" + group + ", Advanced=" + advanced + ", Hidden=" + hidden + '}';
 		}
 
 	}

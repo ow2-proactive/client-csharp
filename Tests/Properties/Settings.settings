@@ -3,10 +3,10 @@
   <Profiles />
   <Settings>
     <Setting Name="TRY_USER" Type="System.String" Scope="User">
-      <Value Profile="(Default)" />
+      <Value Profile="(Default)">viale</Value>
     </Setting>
     <Setting Name="TRY_PASS" Type="System.String" Scope="User">
-      <Value Profile="(Default)" />
+      <Value Profile="(Default)">ProActive123</Value>
     </Setting>
   </Settings>
 </SettingsFile>

@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Configuration;
 
 /*
  * ProActive Parallel Suite(TM):
@@ -85,29 +84,6 @@ namespace org.ow2.proactive.scheduler.common.util.text
 			return NONE_LOOKUP;
 		}
 
-		/// <summary>
-		/// Creates a copy of the given properties instance.
-		/// </summary>
-		/// <param name="input"> the Properties instance to copy. </param>
-		/// <returns> a copy of {@code input}. </returns>
-		private static IDictionary<string, object> copyProperties(SettingsPropertyCollection input)
-		{
-			if (input == null)
-			{
-				return null;
-			}
-			IDictionary<string, object> output = new Dictionary<string, object>();
-//JAVA TO C# CONVERTER TODO TASK: Most Java annotations will not have direct .NET equivalent attributes:
-//ORIGINAL LINE: @SuppressWarnings("unchecked") java.util.Iterator<String> propertyNames = (java.util.Iterator<String>) input.propertyNames();
-			IEnumerator<SettingsProperty> propertyEnumerator = (IEnumerator<SettingsProperty>) input.GetEnumerator();
-			while (propertyEnumerator.MoveNext())
-			{
-				SettingsProperty currentProperty = propertyEnumerator.Current;
-
-				output.Add(currentProperty.Name, currentProperty.DefaultValue.ToString());
-			}
-			return output;
-		}
 
 		/// <summary>
 		/// Returns a new lookup which uses a copy of the current
@@ -124,12 +100,12 @@ namespace org.ow2.proactive.scheduler.common.util.text
 		/// <returns> a lookup using system properties, not null </returns>
 		public static StrLookup systemPropertiesLookup()
 		{
-			SettingsPropertyCollection systemProperties = systemProperties = PWSClient.Properties.Settings.Default.Properties;
-			IDictionary<string, object> propertiesMap = copyProperties(systemProperties);
+			//SettingsPropertyCollection systemProperties = systemProperties = PWSClient.Properties.Resources;
+			//IDictionary<string, object> propertiesMap = copyProperties(systemProperties);
 //JAVA TO C# CONVERTER TODO TASK: Most Java annotations will not have direct .NET equivalent attributes:
 //ORIGINAL LINE: @SuppressWarnings("unchecked") final java.util.Map<String, String> propertiesMap = (java.util.Map) properties;
 //JAVA TO C# CONVERTER WARNING: The original Java variable was marked 'final':
-			return new MapStrLookup(propertiesMap);
+			return new MapStrLookup(new Dictionary<string, object>());
 		}
 
 		/// <summary>

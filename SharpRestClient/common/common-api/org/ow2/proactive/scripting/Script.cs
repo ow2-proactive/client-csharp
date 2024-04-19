@@ -1,9 +1,5 @@
-﻿using Microsoft.Build.Framework;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.IO;
-using System.Security.Policy;
 using System.Text;
 
 /*

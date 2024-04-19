@@ -13,6 +13,10 @@ using System.Runtime.Serialization;
 using org.ow2.proactive.scheduler.common.job;
 using org.ow2.proactive.scheduler.common.job.factories;
 using System.Web;
+using RestSharp.Authenticators;
+using System.Net.Security;
+using System.Net;
+using System.Collections;
 
 namespace PWSClient
 {
@@ -25,21 +29,36 @@ namespace PWSClient
         private const int DEFAULT_REQUEST_TIMEOUT_MS = 600000;
         private const int RETRY_INTERVAL_MS = 1000;
 
+        private const bool DEFAULT_IGNORE_CERTIFICATE_ERRORS = false;
+
         private readonly RestClient _restClient;
+        private SIDAuthenticator _authenticator;
+        private readonly string _url;
+        private readonly int _timeout;
+        private readonly bool _ignoreCertificateErrors;
         private readonly string _username;
         private readonly string _password; // to do later use SecureString see http://www.experts-exchange.com/Programming/Languages/.NET/Q_22829139.html
-        private readonly byte[] _credentialBytes;      
+        private readonly byte[] _credentialBytes;
 
-        private SchedulerClient(RestClient restClient, string username, string password)
+        private SchedulerClient(RestClient restClient, SIDAuthenticator authenticator, string url, int timeout, bool ignoreCertificateErros, string username, string password)
         {
             this._restClient = restClient;
+            this._authenticator = authenticator;
+            this._url = url;
+            this._timeout = timeout;
+            this._ignoreCertificateErrors = ignoreCertificateErros;
             this._username = username;
             this._password = password;
+
         }
 
-        private SchedulerClient(RestClient restClient, byte[] credentialBytes)
+        private SchedulerClient(RestClient restClient, SIDAuthenticator authenticator, string url, int timeout, bool ignoreCertificateErros, byte[] credentialBytes)
         {
             this._restClient = restClient;
+            this._authenticator = authenticator;
+            this._url = url;
+            this._timeout = timeout;
+            this._ignoreCertificateErrors = ignoreCertificateErros;
             this._credentialBytes = credentialBytes;
         }
 
@@ -60,8 +79,10 @@ namespace PWSClient
         /// <param name="restUrl">rest url of the scheduler</param>
         /// <param name="username">login name of the user</param>
         /// <param name="password">password of the user</param>
-        public static SchedulerClient Connect(string restUrl, string username, string password)
-        { return Connect(restUrl, username, password, null, DEFAULT_REQUEST_TIMEOUT_MS); }
+        /// <param name="requestTimeoutMs">timeout in milliseconds for rest requests sent by this client</param>
+        /// <param name="ignoreCertificateErrors">if true server certificate errors will be ignored</param>
+        public static SchedulerClient Connect(string restUrl, string username, string password, int requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, bool ignoreCertificateErrors = DEFAULT_IGNORE_CERTIFICATE_ERRORS)
+        { return Connect(restUrl, username, password, null, requestTimeoutMs, ignoreCertificateErrors); }
 
         /// <summary>
         /// Connects to a running ProActive Scheduler using a credential file
@@ -82,9 +103,11 @@ namespace PWSClient
         /// <seealso cref="CreateCredentials"/>
         /// <seealso cref="Disconnect"/>
         /// <param name="restUrl">rest url of the scheduler</param>
-        /// <param name="credentialFile">path to a credential file on the local file system</param>        
-        public static SchedulerClient Connect(string restUrl, string credentialFile)
-        { return Connect(restUrl, null, null, credentialFile, DEFAULT_REQUEST_TIMEOUT_MS); }
+        /// <param name="credentialFile">path to a credential file on the local file system</param>
+        /// <param name="requestTimeoutMs">timeout in milliseconds for rest requests sent by this client</param>
+        /// <param name="ignoreCertificateErrors">if true server certificate errors will be ignored</param>
+        public static SchedulerClient Connect(string restUrl, string credentialFile, int requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, bool ignoreCertificateErrors = DEFAULT_IGNORE_CERTIFICATE_ERRORS)
+        { return Connect(restUrl, null, null, credentialFile, requestTimeoutMs, ignoreCertificateErrors); }
 
         /// <summary>
         /// Connects to a running ProActive Scheduler (internal)
@@ -94,7 +117,7 @@ namespace PWSClient
         /// <param name="password">password of the user</param>
         /// <param name="credentialFile">path to a credential file (replace username and password)</param>
         /// <param name="requestTimeoutInMs">timeout in milliseconds for the connection</param>
-        private static SchedulerClient Connect(string restUrl, string username, string password, string credentialFile, int requestTimeoutInMs)
+        private static SchedulerClient Connect(string restUrl, string username, string password, string credentialFile, int requestTimeoutInMs, bool ignoreCertificateErrors)
         {
             byte[] credentialBytes = null;
             if (!restUrl.Contains("/rest"))
@@ -108,10 +131,26 @@ namespace PWSClient
                     restUrl = restUrl + "/rest";
                 }
             }
-            RestClient restClient = new RestClient(restUrl);
-            restClient.Timeout = requestTimeoutInMs;
+            RestClientOptions restClientOptions = null;
+            if (ignoreCertificateErrors)
+            {
+                restClientOptions = new RestClientOptions(restUrl)
+                {
+                    MaxTimeout = requestTimeoutInMs,
+                    RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true
+                };
 
-            RestRequest request = new RestRequest("/scheduler/login", Method.POST);
+            }
+            else
+            {
+                restClientOptions = new RestClientOptions(restUrl)
+                {
+                    MaxTimeout = requestTimeoutInMs
+                };
+            }
+            RestClient restClient = new RestClient(restClientOptions);
+
+            RestRequest request = new RestRequest("/scheduler/login", Method.Post);
             request.AddHeader("Content-Type", "multipart/form-data");
             request.AlwaysMultipartFormData = true;
             if (username != null)
@@ -131,13 +170,14 @@ namespace PWSClient
                         credentialBytes = ReadToEnd(cred);
                         request.AddFile("credential", credentialBytes, credentialFile, "application/octet-stream");
                     }
-                } else
+                }
+                else
                 {
                     throw new IOException("Credential File " + credentialFile + " does not exit.");
                 }
             }
 
-            IRestResponse response = restClient.Execute(request);
+            RestResponse response = restClient.Execute(request);
 
             if (response.ErrorException != null)
             {
@@ -151,17 +191,39 @@ namespace PWSClient
 
             // if not exception and the response content size is correct then it's ok
             string sessionid = response.Content;
-            restClient.Authenticator = new SIDAuthenticator(sessionid);
+            SIDAuthenticator authenticator = new SIDAuthenticator(sessionid);
+            if (ignoreCertificateErrors)
+            {
+                //ServicePointManager.ServerCertificateValidationCallback +=  (sender, cert, chain, sslPolicyErrors) => true;
+                restClientOptions = new RestClientOptions(restUrl)
+                {
+                    MaxTimeout = requestTimeoutInMs,
+                    Authenticator = authenticator,
+                    RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true
+                };
+
+            }
+            else
+            {
+                restClientOptions = new RestClientOptions(restUrl)
+                {
+                    MaxTimeout = requestTimeoutInMs,
+                    Authenticator = authenticator
+                };
+            }
+            restClient = new RestClient(restClientOptions);
+
 
             if (credentialBytes != null)
             {
-                return new SchedulerClient(restClient, credentialBytes);
-            } else
+                return new SchedulerClient(restClient, authenticator, restUrl, requestTimeoutInMs, ignoreCertificateErrors, credentialBytes);
+            }
+            else
             {
-                return new SchedulerClient(restClient, username, password);
+                return new SchedulerClient(restClient, authenticator, restUrl, requestTimeoutInMs, ignoreCertificateErrors, username, password);
             }
 
-            
+
         }
 
         /// <summary>
@@ -221,7 +283,7 @@ namespace PWSClient
             }
         }
 
-        private static void ThrowIfNotOK(IRestResponse response)
+        private static void ThrowIfNotOK(RestResponse response)
         {
             dynamic obj;
             switch (response.StatusCode)
@@ -229,6 +291,9 @@ namespace PWSClient
                 case System.Net.HttpStatusCode.NotFound:
                     obj = JObject.Parse(response.Content);
                     throw ExceptionMapper.GetNotFound((string)obj.exceptionClass, (string)obj.errorMessage);
+                case System.Net.HttpStatusCode.BadRequest:
+                    obj = JObject.Parse(response.Content);
+                    throw ExceptionMapper.FromBadRequest((string)obj.exceptionClass, (string)obj.errorMessage);
                 case System.Net.HttpStatusCode.InternalServerError:
                     obj = JObject.Parse(response.Content);
                     throw ExceptionMapper.FromInternalError((string)obj.exceptionClass, (string)obj.errorMessage, (string)obj.stackTrace);
@@ -249,11 +314,18 @@ namespace PWSClient
         /// <returns><c>true</c> if the client is connected to the ProActive server, <c>false</c> otherwise</returns>
         public bool IsConnected()
         {
-            RestRequest request = new RestRequest("/scheduler/isconnected", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/isconnected", Method.Get);
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = _restClient.Execute(request);
-            ThrowIfNotOK(response);
+            RestResponse response = _restClient.Execute(request);
+            try
+            {
+                ThrowIfNotOK(response);
+            } catch (Exception e)
+            {
+                return false;
+            }
+            
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
 
@@ -263,9 +335,9 @@ namespace PWSClient
         private void renewSession()
         {
 
-            RestRequest request = new RestRequest("/scheduler/session", Method.PUT);
+            RestRequest request = new RestRequest("/scheduler/session", Method.Put);
             request.AddHeader("Content-Type", "application/x-www-form-urlencoded");
-            request.AddHeader("sessionid", ((SIDAuthenticator) _restClient.Authenticator).sessionid);
+            request.AddHeader("sessionid", ((SIDAuthenticator)_restClient.Authenticator).sessionid);
             if (_username != null)
             {
                 request.AddParameter("username", _username, ParameterType.GetOrPost);
@@ -276,24 +348,24 @@ namespace PWSClient
             }
             if (_credentialBytes != null)
             {
-                request.AddFile("credential", _credentialBytes, "credentials", "application/octet-stream");                
+                request.AddFile("credential", _credentialBytes, "credentials", "application/octet-stream");
             }
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
 
             if (response.ErrorException != null)
             {
-                throw new InvalidOperationException("Unable to renew session of " + _restClient.BaseUrl, response.ErrorException);
+                throw new InvalidOperationException("Unable to renew session of " + _url, response.ErrorException);
             }
 
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                throw new InvalidOperationException("Unable to renew session of " + _restClient.BaseUrl + " description: " + response.Content);
+                throw new InvalidOperationException("Unable to renew session of " + _url + " description: " + response.Content);
             }
 
             // if not exception and the response content size is correct then it's ok
             string sessionid = response.Content;
-            _restClient.Authenticator = new SIDAuthenticator(sessionid);
+            _authenticator.sessionid = sessionid;
         }
 
         /// <summary>
@@ -303,10 +375,10 @@ namespace PWSClient
         public void Disconnect()
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/disconnect", Method.PUT);
+            RestRequest request = new RestRequest("/scheduler/disconnect", Method.Put);
             request.AddHeader("Accept", "*/*");
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
         }
 
@@ -322,11 +394,11 @@ namespace PWSClient
         /// <param name="password">password of the user</param>
         public byte[] CreateCredentials(string username, string password)
         {
-            RestRequest request = new RestRequest("/scheduler/createcredential", Method.POST);
+            RestRequest request = new RestRequest("/scheduler/createcredential", Method.Post);
             request.AddParameter("username", username, ParameterType.GetOrPost);
             request.AddParameter("password", password, ParameterType.GetOrPost);
             request.AlwaysMultipartFormData = true;
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             byte[] data = _restClient.DownloadData(request);
             return data;
@@ -339,10 +411,10 @@ namespace PWSClient
         public Version GetVersion()
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/version", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/version", Method.Get);
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<Version>(response.Content);
         }
@@ -354,10 +426,10 @@ namespace PWSClient
         public SchedulerStatus GetStatus()
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/status", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/status", Method.Get);
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<SchedulerStatus>(response.Content);
         }
@@ -383,7 +455,7 @@ namespace PWSClient
         public List<UserJobData> ListJobs(int index = 0, int limit = 50, bool myJobs = true, bool pending = true, bool running = true, bool finished = true, string sortParams = null)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/revisionjobsinfo", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/revisionjobsinfo", Method.Get);
             request.AddHeader("Accept", "application/json");
             request.AddParameter("index", index, ParameterType.QueryString);
             request.AddParameter("limit", limit, ParameterType.QueryString);
@@ -396,7 +468,7 @@ namespace PWSClient
                 request.AddParameter("sortParams", sortParams, ParameterType.QueryString);
             }
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             RestPage page = JsonConvert.DeserializeObject<RestPage>(response.Content);
             return page.Map.Values.First();
@@ -414,11 +486,11 @@ namespace PWSClient
         public bool PauseJob(JobIdData jobId)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/pause", Method.PUT);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/pause", Method.Put);
             request.AddHeader("Accept", "application/json");
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
@@ -435,11 +507,11 @@ namespace PWSClient
         public bool ResumeJob(JobIdData jobId)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/resume", Method.PUT);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/resume", Method.Put);
             request.AddHeader("Accept", "application/json");
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
@@ -455,11 +527,11 @@ namespace PWSClient
         public bool KillJob(JobIdData jobId)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/kill", Method.PUT);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/kill", Method.Put);
             request.AddHeader("Accept", "application/json");
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
@@ -477,9 +549,15 @@ namespace PWSClient
         public JobIdData ResubmitJob(JobIdData jobId, IDictionary<string, string> variables = null, IDictionary<string, string> genericInfo = null)
         {
             renewSession();
-            RestRequest request = new RestRequest(getSubmitUrlWithVariables("/scheduler/jobs/{jobid}/resubmit", variables), Method.GET);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/resubmit/body", Method.Post);
             request.AddHeader("Accept", "application/json");
+            request.AddHeader("Content-Type", "application/json");
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.RequestFormat = DataFormat.Json;
+            if (variables != null)
+            {
+                request.AddBody(variables);
+            }
             if (genericInfo != null && genericInfo.Count > 0)
             {
                 foreach (KeyValuePair<string, string> pair in genericInfo)
@@ -488,7 +566,7 @@ namespace PWSClient
                 }
             }
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<JobIdData>(response.Content);
         }
@@ -504,11 +582,11 @@ namespace PWSClient
         public bool RemoveJob(JobIdData jobId)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}", Method.DELETE);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}", Method.Delete);
             request.AddHeader("Accept", "application/json");
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
@@ -526,11 +604,11 @@ namespace PWSClient
         public void ChangeJobPriority(JobIdData jobId, JobPriorityData priority)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/priority/byvalue/{value}", Method.PUT);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/priority/byvalue/{value}", Method.Put);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("value", Convert.ToString((int)priority));
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
         }
 
@@ -570,7 +648,7 @@ namespace PWSClient
             if (printXml)
             {
                 Console.WriteLine(jobString);
-            }            
+            }
             string url = getSubmitUrlWithVariables("/scheduler/submit", variables);
             return _SubmitString(url, jobString, genericInfo);
         }
@@ -585,8 +663,9 @@ namespace PWSClient
         /// <param name="filePath">path to the xml workflow on the local file system</param>
         /// <param name="variables">a dictionary of job variables to configure the job execution</param>
         /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
-        public JobIdData SubmitXml(string filePath, IDictionary<string,string> variables = null, IDictionary<string,string> genericInfo = null) {
-            string url = getSubmitUrlWithVariables("/scheduler/submit", variables);          
+        public JobIdData SubmitXml(string filePath, IDictionary<string, string> variables = null, IDictionary<string, string> genericInfo = null)
+        {
+            string url = getSubmitUrlWithVariables("/scheduler/submit", variables);
             return _SubmitXml(url, filePath, genericInfo);
         }
 
@@ -601,9 +680,8 @@ namespace PWSClient
         /// <param name="variables">a dictionary of job variables to configure the job execution</param>
         /// <param name="genericInfo">a dictionary of generic information to configure the job execution</param>
         public JobIdData SubmitFromUrl(string workflowUrl, IDictionary<string, string> variables = null, IDictionary<string, string> genericInfo = null)
-        {
-            string submissionUrl = getSubmitUrlWithVariables("/scheduler/jobs", variables); ;                   
-            return _SubmitUrl(submissionUrl, workflowUrl, genericInfo);
+        {           
+            return _SubmitUrl("/scheduler/jobs/body", workflowUrl, variables, genericInfo);
         }
 
         private string getSubmitUrlWithVariables(string baseUrl, IDictionary<string, string> variables)
@@ -628,7 +706,7 @@ namespace PWSClient
         private JobIdData _SubmitString(string url, string jobString, IDictionary<string, string> genericInfo = null)
         {
             renewSession();
-            RestRequest request = new RestRequest(url, Method.POST);
+            RestRequest request = new RestRequest(url, Method.Post);
             request.AddHeader("Content-Type", "multipart/form-data");
             request.AddHeader("Accept", "application/json");
             if (genericInfo != null && genericInfo.Count > 0)
@@ -652,15 +730,17 @@ namespace PWSClient
         private JobIdData _SubmitXml(string url, string filePath, IDictionary<string, string> genericInfo)
         {
             renewSession();
-            RestRequest request = new RestRequest(url, Method.POST);
+            RestRequest request = new RestRequest(url, Method.Post);
             request.AddHeader("Content-Type", "multipart/form-data");
             request.AddHeader("Accept", "application/json");
-            if (genericInfo != null && genericInfo.Count > 0) {
-                foreach (KeyValuePair<string, string> pair in genericInfo) {
+            if (genericInfo != null && genericInfo.Count > 0)
+            {
+                foreach (KeyValuePair<string, string> pair in genericInfo)
+                {
                     request.AddParameter(pair.Key, pair.Value, ParameterType.QueryString);
                 }
             }
-                    
+
             string name = Path.GetFileName(filePath);
             using (var xml = new FileStream(filePath, FileMode.Open))
             {
@@ -673,18 +753,25 @@ namespace PWSClient
             return JsonConvert.DeserializeObject<JobIdData>(response.Content);
         }
 
-        private JobIdData _SubmitUrl(string submissionUrl, string workflowUrl, IDictionary<string, string> genericInfo)
+        private JobIdData _SubmitUrl(string submissionUrl, string workflowUrl, IDictionary<string, string> variables, IDictionary<string, string> genericInfo)
         {
             renewSession();
-            RestRequest request = new RestRequest(submissionUrl, Method.POST);
+            RestRequest request = new RestRequest(submissionUrl, Method.Post);
             request.AddHeader("Content-Type", "application/json");
             request.AddHeader("Accept", "application/json");
             request.AddHeader("link", workflowUrl);
+            request.AddHeader("Accept", "application/json");
+            request.RequestFormat = DataFormat.Json;
+            if (variables != null)
+            {
+                request.AddBody(variables);
+            }
+            
             if (genericInfo != null && genericInfo.Count > 0)
             {
                 foreach (KeyValuePair<string, string> pair in genericInfo)
                 {
-                    request.AddParameter(pair.Key, pair.Value, ParameterType.QueryString);
+                    request.AddQueryParameter(pair.Key, pair.Value);
                 }
             }
 
@@ -705,13 +792,33 @@ namespace PWSClient
         public JobState GetJobState(JobIdData jobId)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}", Method.Get);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<JobState>(response.Content);
+        }
+
+        /// <summary>
+        /// Returns the info of a job given its jobId
+        /// </summary>
+        /// <returns>a <c>JobInfo</c> object</returns>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
+        public JobInfo GetJobInfo(JobIdData jobId)
+        {
+            renewSession();
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/info", Method.Get);
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.AddHeader("Accept", "application/json");
+
+            RestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<JobInfo>(response.Content);
         }
 
         /// <summary>
@@ -727,12 +834,12 @@ namespace PWSClient
         public TaskState GetTaskState(JobIdData jobId, string taskName)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskName}", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskName}", Method.Get);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskName", taskName);
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<TaskState>(response.Content);
         }
@@ -749,7 +856,7 @@ namespace PWSClient
         /// <param name="jobId">id of the job</param>
         public bool isJobAlive(JobIdData jobId)
         {
-            return this.GetJobState(jobId).JobInfo.IsAlive();
+            return this.GetJobInfo(jobId).IsAlive();
         }
 
         /// <summary>
@@ -764,12 +871,12 @@ namespace PWSClient
         public JobResult GetJobResult(JobIdData jobId)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/result", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/result", Method.Get);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddHeader("Accept-Encoding", "gzip");
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<JobResult>(response.Content);
         }
@@ -787,14 +894,14 @@ namespace PWSClient
         public IDictionary<string, string> GetJobResultValue(JobIdData jobId)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/result/value", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/result/value", Method.Get);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddHeader("Accept-Encoding", "gzip");
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
-            return JsonConvert.DeserializeObject<IDictionary<string,string>>(response.Content);
+            return JsonConvert.DeserializeObject<IDictionary<string, string>>(response.Content);
         }
 
         /// <summary>
@@ -810,14 +917,39 @@ namespace PWSClient
         public IDictionary<string, string> GetJobResultMap(JobIdData jobId)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/resultmap", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/resultmap", Method.Get);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddHeader("Accept-Encoding", "gzip");
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<IDictionary<string, string>>(response.Content);
+        }
+
+        /// <summary>
+        /// Sends a signal to a running job.
+        /// The job must be alive and ready to accept the mentioned signal
+        /// </summary>
+        /// <returns>the sets of signals accepted by the job after the signal was sent</returns>
+        /// <remarks>The job does not need to be terminated. The <c>resultMap</c> structure can be populated during the workflow execution</remarks>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="name">name of the signal to send</param>
+        public ISet<string> SendSignal(JobIdData jobId, string name)
+        {
+            renewSession();
+            RestRequest request = new RestRequest("/scheduler/job/{jobid}/signals", Method.Post);
+            request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
+            request.AddHeader("Content-Type", "application/octet-stream");
+            request.AddHeader("Accept", "application/json");
+            request.AddQueryParameter("signal", name);
+
+            RestResponse response = _restClient.Execute(request);
+            ThrowIfNotOK(response);
+            return JsonConvert.DeserializeObject<ISet<string>>(response.Content);
         }
 
         /// <summary>
@@ -859,6 +991,57 @@ namespace PWSClient
         }
 
         /// <summary>
+        /// Wait until the given job is ready to receive a signal.    
+        /// This method must be called before a signal is sent using 
+        /// </summary>
+        /// <returns>a set of signal name that the job is ready to receive</returns>
+        /// <exception cref="NotConnectedException">if you are not authenticated</exception>
+        /// <exception cref="UnknownJobException">if the job does not exist</exception>
+        /// <exception cref="PermissionException">if you can't access to this particular job</exception>
+        /// <exception cref="InvalidOperationException">if the job terminates before any mentioned signal was ready</exception>
+        /// <param name="jobId">id of the job</param>
+        /// <param name="awaitedSignals">set of signals to wait for or null to wait for any signal. 
+        /// The wait will stop and the function will return as soon as at least one signal mentioned is ready.</param>
+        /// <param name="timeoutInMs">maximum wait time in milliseconds</param>
+        public ISet<string> WaitForJobSignal(JobIdData jobId, ISet<string> awaitedSignals, int timeoutInMs)
+        {
+            renewSession();
+            ISet<string> readySignalsToWait = null;
+            if (awaitedSignals != null)
+            {
+                readySignalsToWait = new HashSet<string>();
+                foreach (var item in awaitedSignals)
+                {
+                    readySignalsToWait.Add("ready_" + item);
+                }
+            }
+            var cts = new CancellationTokenSource(timeoutInMs);
+            Task<ISet<string>> tr = Task.Run(async delegate
+            {
+                return await WaitForJobSignalsAsync(jobId, readySignalsToWait, cts.Token);
+            }, cts.Token);
+            try
+            {
+                tr.Wait();
+            }
+            catch (AggregateException ae)
+            {
+                foreach (var e in ae.InnerExceptions)
+                {
+                    if (e is TaskCanceledException) // occurs in case of timeout
+                    {
+                        throw new TimeoutException("Timeout waiting for the job " + jobId);
+                    }
+                    else
+                    {
+                        throw e;
+                    }
+                }
+            }
+            return tr.Result;
+        }
+
+        /// <summary>
         /// Wait until the given job is finished and return its result as a dictionary.
         /// </summary>
         /// <returns>a dictionary of task name, task result values</returns>
@@ -867,7 +1050,7 @@ namespace PWSClient
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         /// <param name="jobId">id of the job</param>
         /// <param name="timeoutInMs">maximum wait time in milliseconds</param>
-        public IDictionary<string,string> WaitForJobResultValue(JobIdData jobId, int timeoutInMs)
+        public IDictionary<string, string> WaitForJobResultValue(JobIdData jobId, int timeoutInMs)
         {
             renewSession();
             var cts = new CancellationTokenSource(timeoutInMs);
@@ -899,8 +1082,8 @@ namespace PWSClient
         private async Task<JobResult> WaitForJobResultAsync(JobIdData jobId, CancellationToken cancelToken)
         {
             renewSession();
-            JobState state = GetJobState(jobId);
-            if (!state.JobInfo.IsAlive())
+            JobInfo state = GetJobInfo(jobId);
+            if (!state.IsAlive())
             {
                 return GetJobResult(jobId);
             }
@@ -908,6 +1091,31 @@ namespace PWSClient
             {
                 await Task.Delay(RETRY_INTERVAL_MS, cancelToken);
                 return await WaitForJobResultAsync(jobId, cancelToken);
+            }
+        }
+
+        private async Task<ISet<string>> WaitForJobSignalsAsync(JobIdData jobId, ISet<string> awaitedSignals, CancellationToken cancelToken)
+        {
+            renewSession();
+            JobInfo jobInfo = GetJobInfo(jobId);
+            if (!jobInfo.IsAlive())
+            {
+                throw new InvalidOperationException("Job " + jobId.ToString() + " has terminated before signals were received");
+            }
+            else if (awaitedSignals == null && jobInfo.Signals != null && jobInfo.Signals.Count > 0)
+            {
+                return new HashSet<string>(jobInfo.Signals);
+            }
+            else if (awaitedSignals != null && jobInfo.Signals != null && awaitedSignals.Overlaps(jobInfo.Signals))
+            {
+                ISet<string> availableSignals = new HashSet<string>(jobInfo.Signals);
+                availableSignals.IntersectWith(awaitedSignals);
+                return availableSignals;
+            }
+            else
+            {
+                await Task.Delay(RETRY_INTERVAL_MS, cancelToken);
+                return await WaitForJobSignalsAsync(jobId, awaitedSignals, cancelToken);
             }
         }
 
@@ -929,8 +1137,8 @@ namespace PWSClient
         private async Task<IDictionary<string, string>> WaitForJobResultValueAsync(JobIdData jobId, CancellationToken cancelToken)
         {
             renewSession();
-            JobState state = GetJobState(jobId);
-            if (!state.JobInfo.IsAlive())
+            JobInfo state = GetJobInfo(jobId);
+            if (!state.IsAlive())
             {
                 return GetJobResultValue(jobId);
             }
@@ -953,16 +1161,16 @@ namespace PWSClient
         /// <exception cref="PermissionException">if you can't access to this particular job</exception>
         /// <param name="jobId">id of the job</param>
         /// <param name="taskName">name of the task inside the given job</param>
-        public TaskResult GetTaskResult(JobIdData jobId, string taskName) 
+        public TaskResult GetTaskResult(JobIdData jobId, string taskName)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result", Method.Get);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskname", taskName);
             request.AddHeader("Accept-Encoding", "gzip");
             request.AddHeader("Accept", "application/json");
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             TaskResult tr = JsonConvert.DeserializeObject<TaskResult>(response.Content);
 
@@ -1027,13 +1235,13 @@ namespace PWSClient
         public string GetAllTaskLogs(JobIdData jobId, string taskName)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/all", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/all", Method.Get);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskname", taskName);
             request.AddHeader("Accept-Encoding", "gzip");
             request.AddHeader("Accept", "text/plain");
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return response.Content;
         }
@@ -1051,13 +1259,13 @@ namespace PWSClient
         public string GetStdOutTaskLogs(JobIdData jobId, string taskName)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/out", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/out", Method.Get);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskname", taskName);
             request.AddHeader("Accept-Encoding", "gzip");
             request.AddHeader("Accept", "text/plain");
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return response.Content;
         }
@@ -1075,13 +1283,13 @@ namespace PWSClient
         public string GetStdErrTaskLogs(JobIdData jobId, string taskName)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/err", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/log/err", Method.Get);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskname", taskName);
             request.AddHeader("Accept-Encoding", "gzip");
             request.AddHeader("Accept", "text/plain");
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return response.Content;
         }
@@ -1098,13 +1306,13 @@ namespace PWSClient
         public string GetTaskResultValue(JobIdData jobId, string taskName)
         {
             renewSession();
-            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/value", Method.GET);
+            RestRequest request = new RestRequest("/scheduler/jobs/{jobid}/tasks/{taskname}/result/value", Method.Get);
             request.AddUrlSegment("jobid", Convert.ToString(jobId.Id));
             request.AddUrlSegment("taskname", taskName);
             request.AddHeader("Accept-Encoding", "gzip");
             request.AddHeader("Accept", "*/*");
 
-            IRestResponse response = _restClient.Execute(request);
+            RestResponse response = _restClient.Execute(request);
             ThrowIfNotOK(response);
             return response.Content;
         }
@@ -1134,7 +1342,7 @@ namespace PWSClient
             // path example: /dir1/dir2/..
             urlBld.Append(pathname);
 
-            RestRequest request = new RestRequest(urlBld.ToString(), Method.POST);
+            RestRequest request = new RestRequest(urlBld.ToString(), Method.Post);
             request.AddHeader("Content-Type", "multipart/form-data");
             request.AddHeader("Accept", "application/json");
             request.AddParameter("fileName", filename, ParameterType.GetOrPost);
@@ -1147,7 +1355,7 @@ namespace PWSClient
             ThrowIfNotOK(response);
             return JsonConvert.DeserializeObject<bool>(response.Content);
         }
-       
+
         /// <summary>
         /// Pull the given file, accessible from a remote data space (GLOBALSPACE or USERSPACE), to a local file.
         /// </summary>
@@ -1173,7 +1381,7 @@ namespace PWSClient
             // path example: /dir1/dir2/..
             urlBld.Append(pathname);
 
-            RestRequest request = new RestRequest(urlBld.ToString(), Method.GET);
+            RestRequest request = new RestRequest(urlBld.ToString(), Method.Get);
             request.AddHeader("Accept", "application/octet-stream");
             // !! DANGEROUS !! - Loads all data in memory before writing to a file
             byte[] data = _restClient.DownloadData(request);
@@ -1198,7 +1406,7 @@ namespace PWSClient
         /// <param name="pathname">pathname to be used in the server, for instance /dir1/</param>
         /// <param name="localdir">path of the local directory whose content will be transferred</param>
         /// <param name="wildcard">wildcard to select some of the local files to be transferred</param>
-        public bool PushDirectory(string spacename, string pathname, 
+        public bool PushDirectory(string spacename, string pathname,
             string localdir, string wildcard)
         {
             renewSession();
@@ -1210,7 +1418,7 @@ namespace PWSClient
             {
                 b = b && PushFile(spacename, pathname, GetRelativePath(f, localdir), f);
             }
- 
+
             return b;
         }
 
@@ -1237,7 +1445,7 @@ namespace PWSClient
             urlBld.Append(spacename).Append("/");
             // path example: /dir1/dir2/..
             urlBld.Append(pathname);
-            RestRequest request = new RestRequest(urlBld.ToString(), Method.DELETE);
+            RestRequest request = new RestRequest(urlBld.ToString(), Method.Delete);
 
             var response = _restClient.Execute(request);
             ThrowIfNotOK(response);
@@ -1313,29 +1521,24 @@ namespace PWSClient
     /// <summary>
     /// Retains the sessionid required for each rest request
     /// </summary>
-    sealed class SIDAuthenticator : RestSharp.Authenticators.IAuthenticator
+    public class SIDAuthenticator : IAuthenticator
     {
-        public readonly string sessionid;
+        public string sessionid;
 
         public SIDAuthenticator(string newSessionid)
         {
             this.sessionid = newSessionid;
         }
 
-        public void Authenticate(IRestClient client, IRestRequest request)
-        {
-            // NetworkCredentials always makes two trips, even if with PreAuthenticate,
-            // it is also unsafe for many partial trust scenarios
-            // request.Credentials = Credentials;
-            // thanks TweetSharp!
-            // request.Credentials = new NetworkCredential(_username, _password);
-            // only add the Authorization parameter if it hasn't been added by a previous Execute
-            if (!request.Parameters.Any(p => p.Name.Equals("sessionid", StringComparison.OrdinalIgnoreCase)))
-            {
-                //var token = Convert.ToBase64String(Encoding.UTF8.GetBytes(string.Format("{0}:{1}", _username, _password)));
-                //var authHeader = string.Format("Basic {0}", token);
-                request.AddParameter("sessionid", this.sessionid, ParameterType.HttpHeader);
-            }
-        }
+        protected string Token { get; set; }
+
+        protected ValueTask<Parameter> GetAuthenticationParameter(IRestClient client, RestRequest request)
+        => new(
+            !request.Parameters.Any(p => p.Name.Equals("sessionid", StringComparison.OrdinalIgnoreCase)) ? new HeaderParameter("sessionid", this.sessionid) : new HeaderParameter("toto", "toto")
+        );
+
+        public async ValueTask Authenticate(IRestClient client, RestRequest request)
+            => request.AddOrUpdateParameter(await GetAuthenticationParameter(client, request).ConfigureAwait(false));
+
     }
 }
