@@ -440,9 +440,9 @@ namespace org.ow2.proactive.scheduler.common.job.factories
 				setAttribute(taskE, XMLAttributes.TASK_RUN_AS_ME, "true");
 			}
 
-			if (task.Fork != null && task.Fork.Value)
+			if (task.Fork != null)
 			{
-				setAttribute(taskE, XMLAttributes.TASK_FORK, "true");
+				setAttribute(taskE, XMLAttributes.TASK_FORK, "" + task.Fork.Value);
 			}
 
 			if (task.PreciousResult)
