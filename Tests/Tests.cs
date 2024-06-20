@@ -8,7 +8,6 @@ using System.Threading;
 using org.ow2.proactive.scheduler.common.task;
 using org.ow2.proactive.scheduler.common.job;
 using org.ow2.proactive.scripting;
-using System.Linq;
 
 namespace Tests
 {
@@ -345,6 +344,20 @@ namespace Tests
             return job;
         }
 
+        private TaskFlowJob createHelloWorldNonForkJob()
+        {
+            TaskFlowJob job = new TaskFlowJob();
+            job.Name = "Hello World Job";
+            ScriptTask task = new ScriptTask();
+            task.Name = "hello_task";
+            TaskScript script = new TaskScript(new SimpleScript("result = 'true'.equals(System.getProperty('pa.scheduler.task.fork'))", "groovy", new string[0]));
+            task.Script = script;
+            task.PreciousResult = true;
+            task.Fork = false;
+            job.addTask(task);
+            return job;
+        }
+
         private TaskFlowJob createGetVarJob(string varName, string giName)
         {
             TaskFlowJob job = new TaskFlowJob();
@@ -396,6 +409,34 @@ namespace Tests
                 TaskResult tr2 = jr.PreciousTasks["hello_task"];
                 Assert.IsNotNull(tr2);
                 Assert.AreEqual("OK", tr2.Value);
+            }
+            finally
+            {
+                sc.KillJob(jid);
+                sc.RemoveJob(jid);
+            }
+        }
+
+        [TestMethod]
+        public void SubmitNonForkJobAndWait()
+        {
+            TaskFlowJob job = createHelloWorldNonForkJob();
+            JobIdData jid = sc.SubmitJob(job);
+            try
+            {
+                Assert.AreNotEqual<long>(0, jid.Id, "After submission the job id is invalid!");
+                Assert.AreEqual<string>("Hello World Job", jid.ReadableName, "After submission the job name is invalid!");
+
+                JobResult jr = sc.WaitForJobResult(jid, 30000);
+                Assert.IsNotNull(jr);
+                TaskResult tr = jr.Tasks["hello_task"];
+                Assert.IsNotNull(tr);
+                Assert.IsNotNull(tr.PropagatedVariables);
+                Assert.AreEqual<string>("Hello World Job", tr.PropagatedVariables["PA_JOB_NAME"]);
+                Assert.AreEqual("false", tr.Value);
+                TaskResult tr2 = jr.PreciousTasks["hello_task"];
+                Assert.IsNotNull(tr2);
+                Assert.AreEqual("false", tr2.Value);
             }
             finally
             {
